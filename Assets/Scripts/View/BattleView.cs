@@ -43,6 +43,27 @@ namespace Gunplay.View
         /// <summary>径向光晕精灵（glow）在缩放 1 时的可见直径（世界单位）</summary>
         private const float GlowVisibleDiameter = 1.24f;
 
+        /// <summary>外部敌人帧动画的播放帧率（4~8 帧/秒区间取 6）</summary>
+        private const float EnemyFrameFps = 6f;
+
+        /// <summary>外部敌人帧动画的相位槽数量（按敌人 Id 取模分配，避免同屏敌人整齐踏步）</summary>
+        private const int EnemyFramePhaseSlots = 16;
+
+        /// <summary>每个相位槽对应的秒数偏移（16 × 0.25 = 4 秒一个循环）</summary>
+        private const float EnemyFramePhaseStep = 0.25f;
+
+        /// <summary>Boss 外部美术在常规换算结果上的额外放大系数（压迫感更强）</summary>
+        private const float BossExternalScale = 1.08f;
+
+        /// <summary>每帧最多生成的敌人死亡帧特效数量（性能护栏）</summary>
+        private const int MaxDeathFxPerFrame = 6;
+
+        /// <summary>城墙在屏幕上的显示高度（世界单位，顶边落在城门受击线）</summary>
+        private const float WallDisplayHeight = 1.7f;
+
+        /// <summary>炮台在屏幕上的显示高度（世界单位，与程序化炮台 0.96×1.5 一致）</summary>
+        private const float CannonDisplayHeight = 1.44f;
+
         /// <summary>敌人血条的世界高度</summary>
         private const float HpBarHeight = 0.085f;
 
@@ -171,6 +192,27 @@ namespace Gunplay.View
 
         /// <summary>世界空间飘字系统（点阵数字，零字体依赖）</summary>
         private WorldNumbers numbers;
+
+        /// <summary>外部爆炸帧序列（空数组表示没有外部图，回退程序化光晕）</summary>
+        private Sprite[] explosionFrames;
+
+        /// <summary>外部命中火花帧序列（空数组表示没有外部图，回退程序化星形）</summary>
+        private Sprite[] hitSparkFrames;
+
+        /// <summary>外部枪口火焰帧序列（空数组表示没有外部图，回退程序化光晕）</summary>
+        private Sprite[] muzzleFrames;
+
+        /// <summary>外部激光束精灵 bullet_laser（null 表示没有外部图，回退程序化柔光）</summary>
+        private Sprite laserBeamSprite;
+
+        /// <summary>兵种碰撞半径缓存（从 Config.Enemies 读一次，用于把死亡帧等比缩放到身体大小）</summary>
+        private readonly Dictionary<EnemyKind, float> enemyKindRadii = new Dictionary<EnemyKind, float>();
+
+        /// <summary>死亡帧特效限额所属帧号</summary>
+        private int deathFxFrame = -1;
+
+        /// <summary>本帧已生成的死亡帧特效数量</summary>
+        private int deathFxCount;
 
         /// <summary>背景（静态）</summary>
         private SpriteActor backgroundActor;
@@ -385,6 +427,7 @@ namespace Gunplay.View
             laserGlowPool = new SpriteActorPool(root, "LaserGlow", laserPrewarm);
             fxPool = new SpriteActorPool(root, "Fx", fxPrewarm);
             numbers = new WorldNumbers(root, "FloatingNumbers", numberPrewarm);
+            CacheExternalArt();
 
             if (buildStaticArt)
             {
@@ -398,16 +441,38 @@ namespace Gunplay.View
             staticsBuilt = true;
         }
 
+        /// <summary>缓存本局会用到的外部帧序列与激光束精灵（只查一次，缺失时保持 null / 空数组）</summary>
+        private void CacheExternalArt()
+        {
+            explosionFrames = ArtLibrary.GetFrames("explosion");
+            hitSparkFrames = ArtLibrary.GetFrames("hit_spark");
+            muzzleFrames = ArtLibrary.GetFrames("muzzle");
+            laserBeamSprite = ArtLibrary.GetSprite("bullet_laser");
+        }
+
+        /// <summary>取精灵在缩放 1 时的世界尺寸（宽高，单位）；外部美术按实际像素 / PPU 自动换算</summary>
+        private static Vector2 SpriteWorldSize(Sprite sprite)
+        {
+            if (sprite == null)
+            {
+                return Vector2.one;
+            }
+
+            Vector3 size = sprite.bounds.size;
+            return new Vector2(Mathf.Max(0.0001f, size.x), Mathf.Max(0.0001f, size.y));
+        }
+
         /// <summary>生成背景（上亮下暗的战场底色）</summary>
         private void BuildBackground()
         {
             backgroundActor = new SpriteActor(root, "BattleBackground");
-            backgroundActor.SetSprite(SpriteFactory.Get("bg"));
+            Sprite bgSprite = SpriteFactory.Get("bg");
+            backgroundActor.SetSprite(bgSprite);
             backgroundActor.SetOrder(ViewOrder.Background);
             backgroundActor.SetPosition(Vector2.zero);
-            float bgWidth = 0.32f;
-            float bgHeight = 0.64f;
-            backgroundActor.SetScale(BackgroundWidth / bgWidth, BackgroundHeight / bgHeight);
+            // 按精灵自身世界尺寸铺满战场（程序化 bg 为 0.32×0.64，外部 bg 按实际图尺寸自动适配）
+            Vector2 bgSize = SpriteWorldSize(bgSprite);
+            backgroundActor.SetScale(BackgroundWidth / bgSize.x, BackgroundHeight / bgSize.y);
             backgroundActor.SetColor(Color.white);
         }
 
@@ -415,10 +480,13 @@ namespace Gunplay.View
         private void BuildWall()
         {
             wallActor = new SpriteActor(root, "GateWall");
-            wallActor.SetSprite(SpriteFactory.Get("wall"));
+            Sprite wallSprite = SpriteFactory.Get("wall");
+            wallActor.SetSprite(wallSprite);
             wallActor.SetOrder(ViewOrder.Wall);
-            wallActor.SetPosition(new Vector2(0f, BattleField.GateLineY - 0.85f));
-            wallActor.SetScale(BackgroundWidth / 2.56f, 1.7f / 0.64f);
+            wallActor.SetPosition(new Vector2(0f, BattleField.GateLineY - WallDisplayHeight * 0.5f));
+            // 横向铺满、纵向固定显示高度（程序化 wall 为 2.56×0.64，外部 wall 按实际图尺寸自动适配）
+            Vector2 wallSize = SpriteWorldSize(wallSprite);
+            wallActor.SetScale(BackgroundWidth / wallSize.x, WallDisplayHeight / wallSize.y);
             wallActor.SetColor(new Color(0.62f, 0.66f, 0.76f, 1f));
 
             wallFlashActor = new SpriteActor(root, "GateWallFlash");
@@ -434,11 +502,23 @@ namespace Gunplay.View
         private void BuildCannon()
         {
             cannonActor = new SpriteActor(root, "MuzzleCannon");
-            cannonActor.SetSprite(SpriteFactory.Get("cannon"));
+            Sprite cannonSprite = SpriteFactory.Get("cannon");
+            cannonActor.SetSprite(cannonSprite);
             cannonActor.SetOrder(ViewOrder.Cannon);
-            // cannon 精灵 128×96 px：炮管顶端在中心上方 40 px，按 1.5 倍缩放即 0.6 unit
-            cannonActor.SetPosition(BattleField.Muzzle + new Vector2(0f, -0.6f));
-            cannonActor.SetScale(1.5f);
+            if (ArtLibrary.TryGetSprite("cannon", out Sprite externalCannon))
+            {
+                // 外部炮台：按实际图尺寸缩放到固定显示高度，并把炮管顶端（图片顶边）对齐炮口
+                Vector2 cannonSize = SpriteWorldSize(externalCannon);
+                float cannonScale = CannonDisplayHeight / cannonSize.y;
+                cannonActor.SetPosition(BattleField.Muzzle + new Vector2(0f, -0.5f * cannonSize.y * cannonScale));
+                cannonActor.SetScale(cannonScale);
+            }
+            else
+            {
+                // cannon 精灵 128×96 px：炮管顶端在中心上方 40 px，按 1.5 倍缩放即 0.6 unit
+                cannonActor.SetPosition(BattleField.Muzzle + new Vector2(0f, -0.6f));
+                cannonActor.SetScale(1.5f);
+            }
             cannonActor.SetColor(new Color(0.85f, 0.87f, 0.95f, 1f));
         }
 
@@ -506,6 +586,10 @@ namespace Gunplay.View
             view.HpFill = enemyHpFillPool.Rent();
             view.Aura = null;
             view.LastFrame = -1;
+            // 外部帧动画状态：按敌人 Id 分配相位槽，避免同屏敌人整齐踏步
+            view.Frames = null;
+            view.FrameKey = null;
+            view.FramePhase = (Mathf.Abs(enemy.Id) % EnemyFramePhaseSlots) * EnemyFramePhaseStep;
             view.Body.SetOrder(ViewOrder.EnemyBody);
             view.Shield.SetOrder(ViewOrder.EnemyShield);
             view.HpBack.SetOrder(ViewOrder.EnemyHpBar);
@@ -544,30 +628,63 @@ namespace Gunplay.View
             float diameter = Mathf.Max(0.1f, enemy.Radius * 2f * enemySizeMultiplier);
             float flash = Mathf.Clamp01(enemy.HitFlash / HitFlashDuration);
 
-            // 身体：不同兵种用不同图形与配色，受击时向白色插值
-            Sprite bodySprite = EnemyBodySprite(kind);
+            // 身体：优先外部美术（保留原图配色 + 帧动画），缺失时回退程序化图形 + 兵种染色
+            Sprite bodySprite;
+            Color bodyColor;
+            float bodyRotation = 0f;
+            if (TryGetEnemyExternalSprite(enemy, out Sprite externalSprite, out string artKey))
+            {
+                Sprite[] frames = GetEnemyFrames(view, artKey);
+                int frameIndex = 0;
+                if (frames.Length > 1)
+                {
+                    // 以 Time.time + 每只敌人的随机相位做相位驱动，固定帧率循环播放
+                    frameIndex = Mathf.Abs((int)((Time.time + view.FramePhase) * EnemyFrameFps)) % frames.Length;
+                }
+
+                bodySprite = frames.Length > 0 ? frames[frameIndex] : externalSprite;
+                bodyColor = Color.white;
+                // 外部美术已自带朝向与体量：不旋转、不染色。
+                // 缩放公式：原程序化渲染尺寸 = EnemyVisibleExtent(kind) × 原缩放 = diameter，
+                // 外部图按最长边把同样尺寸补齐，即 scale = diameter / max(sprite.bounds)，与原大小关系一致（PPU 变化不影响结果）。
+                Vector2 bodySize = SpriteWorldSize(bodySprite);
+                float externalScale = diameter / Mathf.Max(bodySize.x, bodySize.y);
+                if (kind == EnemyKind.Boss)
+                {
+                    // Boss 外部图再略微放大，强化压迫感
+                    externalScale *= BossExternalScale;
+                }
+
+                view.Body.SetScale(externalScale);
+            }
+            else
+            {
+                bodySprite = EnemyBodySprite(kind);
+                bodyColor = ViewPalette.EnemyBody(kind);
+                if (kind == EnemyKind.Boss && enemy.BossPhase > 1)
+                {
+                    // Boss 进入后续阶段时逐渐升温（暗红 → 亮橙红），给玩家阶段变化的视觉提示
+                    bodyColor = Color.Lerp(bodyColor, new Color(1f, 0.42f, 0.20f, 1f), Mathf.Clamp01((enemy.BossPhase - 1) * 0.28f));
+                }
+
+                // 飞行兵三角形尖端朝下（朝城门），重甲兵胶囊横放（显得更敦实）
+                if (kind == EnemyKind.Flyer)
+                {
+                    bodyRotation = 180f;
+                }
+                else if (kind == EnemyKind.Heavy)
+                {
+                    bodyRotation = 90f;
+                }
+
+                view.Body.SetScale(diameter / EnemyVisibleExtent(kind));
+                view.Frames = null;
+                view.FrameKey = null;
+            }
+
             view.Body.SetSprite(bodySprite);
             view.Body.SetPosition(position);
-            view.Body.SetScale(diameter / EnemyVisibleExtent(kind));
-            // 飞行兵三角形尖端朝下（朝城门），重甲兵胶囊横放（显得更敦实）
-            float bodyRotation = 0f;
-            if (kind == EnemyKind.Flyer)
-            {
-                bodyRotation = 180f;
-            }
-            else if (kind == EnemyKind.Heavy)
-            {
-                bodyRotation = 90f;
-            }
-
             view.Body.SetRotation(bodyRotation);
-            Color bodyColor = ViewPalette.EnemyBody(kind);
-            if (kind == EnemyKind.Boss && enemy.BossPhase > 1)
-            {
-                // Boss 进入后续阶段时逐渐升温（暗红 → 亮橙红），给玩家阶段变化的视觉提示
-                bodyColor = Color.Lerp(bodyColor, new Color(1f, 0.42f, 0.20f, 1f), Mathf.Clamp01((enemy.BossPhase - 1) * 0.28f));
-            }
-
             view.Body.SetColor(Color.Lerp(bodyColor, Color.white, flash * 0.85f));
 
             // 护盾：按 ShieldAngle 旋转（精灵正面朝 +Y，因此角度 - 90 度）
@@ -684,6 +801,108 @@ namespace Gunplay.View
                 default:
                     return CircleVisibleDiameter;
             }
+        }
+
+        /// <summary>按兵种取外部身体美术 key（缺失时由调用方回退程序化图形）</summary>
+        private static string EnemyArtKey(EnemyKind kind)
+        {
+            switch (kind)
+            {
+                case EnemyKind.Runner:
+                    return "enemy_runner";
+                case EnemyKind.Shield:
+                    return "enemy_shield";
+                case EnemyKind.Flyer:
+                    return "enemy_flyer";
+                case EnemyKind.Heavy:
+                    return "enemy_heavy";
+                case EnemyKind.Boss:
+                    return "enemy_boss";
+                default:
+                    return "enemy_grunt";
+            }
+        }
+
+        /// <summary>
+        /// 尝试取敌人的外部身体精灵：Boss 阶段 2 / 3 优先 enemy_boss_p2 / enemy_boss_p3（单帧阶段图），再回退基础 key。
+        /// 返回 false 表示没有任何外部图，调用方使用程序化图形。
+        /// </summary>
+        private static bool TryGetEnemyExternalSprite(Enemy enemy, out Sprite sprite, out string artKey)
+        {
+            EnemyKind kind = enemy.Kind;
+            string baseKey = EnemyArtKey(kind);
+            sprite = null;
+            artKey = null;
+            if (kind == EnemyKind.Boss && enemy.BossPhase > 1)
+            {
+                // 第三阶段优先 enemy_boss_p3，其次 enemy_boss_p2（都是单帧阶段图，无帧序列）；都缺失时回退 enemy_boss
+                if (enemy.BossPhase >= 3 && ArtLibrary.TryGetSprite("enemy_boss_p3", out sprite))
+                {
+                    artKey = "enemy_boss_p3";
+                    return true;
+                }
+
+                if (ArtLibrary.TryGetSprite("enemy_boss_p2", out sprite))
+                {
+                    artKey = "enemy_boss_p2";
+                    return true;
+                }
+            }
+
+            if (ArtLibrary.TryGetSprite(baseKey, out sprite))
+            {
+                artKey = baseKey;
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>取敌人外部帧序列（缓存在视图上；key 变化时重新装载，例如 Boss 换阶段）</summary>
+        private static Sprite[] GetEnemyFrames(EnemyView view, string artKey)
+        {
+            if (view.Frames == null || view.FrameKey != artKey)
+            {
+                view.Frames = ArtLibrary.GetFrames(artKey);
+                view.FrameKey = artKey;
+            }
+
+            return view.Frames;
+        }
+
+        /// <summary>按兵种取外部死亡帧精灵（enemy_xxx_death；Boss 各阶段统一用 enemy_boss_death）</summary>
+        private static Sprite GetEnemyDeathSprite(EnemyKind kind)
+        {
+            return ArtLibrary.TryGetSprite(EnemyArtKey(kind) + "_death", out Sprite sprite) ? sprite : null;
+        }
+
+        /// <summary>
+        /// 按兵种取碰撞半径（首次从 Config.Enemies 读取并缓存；配置缺失时回退 0.38）。
+        /// EnemyKilledEvent 不含半径，死亡帧需要靠它把图缩放到与身体一致的大小。
+        /// </summary>
+        private float GetEnemyKindRadius(EnemyKind kind)
+        {
+            if (enemyKindRadii.TryGetValue(kind, out float cached) && cached > 0f)
+            {
+                return cached;
+            }
+
+            float radius = 0.38f;
+            if (runtime != null && runtime.Config != null && runtime.Config.Enemies != null)
+            {
+                IReadOnlyList<EnemyConfigData> configs = runtime.Config.Enemies;
+                for (int i = 0; i < configs.Count; i++)
+                {
+                    if (configs[i] != null && configs[i].kind == kind)
+                    {
+                        radius = Mathf.Max(0.01f, configs[i].radius);
+                        break;
+                    }
+                }
+            }
+
+            enemyKindRadii[kind] = radius;
+            return radius;
         }
 
         // ============================ 子弹同步 ============================
@@ -864,11 +1083,24 @@ namespace Gunplay.View
                 segment.Core.SetColor(coreColor);
 
                 segment.Glow.SetActive(true);
-                segment.Glow.SetSprite(SpriteFactory.Get("glow"));
                 segment.Glow.SetPosition(center);
                 segment.Glow.SetRotation(angle);
-                segment.Glow.SetScale(length / GlowVisibleDiameter, width * 3.4f / GlowVisibleDiameter);
-                Color glowColor = ViewPalette.LaserGlow;
+                Color glowColor;
+                if (laserBeamSprite != null)
+                {
+                    // 外部激光束（bullet_laser）按实际图尺寸拉伸到当前长度与粗细，保留原图配色
+                    segment.Glow.SetSprite(laserBeamSprite);
+                    Vector2 beamSize = SpriteWorldSize(laserBeamSprite);
+                    segment.Glow.SetScale(length / beamSize.x, width * 3.4f / beamSize.y);
+                    glowColor = Color.white;
+                }
+                else
+                {
+                    segment.Glow.SetSprite(SpriteFactory.Get("glow"));
+                    segment.Glow.SetScale(length / GlowVisibleDiameter, width * 3.4f / GlowVisibleDiameter);
+                    glowColor = ViewPalette.LaserGlow;
+                }
+
                 glowColor.a *= energyAlpha;
                 segment.Glow.SetColor(glowColor);
             }
@@ -1038,19 +1270,31 @@ namespace Gunplay.View
 
                 fx.Position += fx.Velocity * deltaTime;
                 fx.Actor.SetPosition(fx.Position);
+                if (fx.Frames != null && fx.Frames.Length > 1)
+                {
+                    // 外部帧序列：按寿命等比分帧（帧数 / 寿命等比映射）
+                    int frameIndex = Mathf.Min(fx.Frames.Length - 1, (int)(t * fx.Frames.Length));
+                    if (frameIndex != fx.FrameIndex)
+                    {
+                        fx.FrameIndex = frameIndex;
+                        fx.Actor.SetSprite(fx.Frames[frameIndex]);
+                    }
+                }
+
                 fx.Actor.SetScale(Mathf.Max(0.01f, Mathf.Lerp(fx.StartScale, fx.EndScale, t)));
                 Color color = Color.Lerp(fx.StartColor, fx.EndColor, t);
                 color.a *= 1f - t;
                 fx.Actor.SetColor(color);
-                if (fx.RotationSpeed != 0f)
-                {
-                    fx.Actor.SetRotation(fx.StartRotation + fx.Elapsed * fx.RotationSpeed);
-                }
+                // 始终按起始角 + 自旋计算（外部枪口火焰需要一次性指定朝向，自旋速度为 0）
+                fx.Actor.SetRotation(fx.StartRotation + fx.Elapsed * fx.RotationSpeed);
             }
         }
 
-        /// <summary>生成一个瞬时特效并返回其运行期数据（可继续设置速度 / 自旋）</summary>
-        private Fx SpawnFx(string spriteKey, Vector2 position, Color startColor, Color endColor, float startScale, float endScale, float life, int sortingOrder)
+        /// <summary>
+        /// 生成一个瞬时特效并返回其运行期数据（可继续设置速度 / 自旋）。
+        /// overrideSprite 不为空时使用该单图（例如敌人死亡帧），不再查帧序列。
+        /// </summary>
+        private Fx SpawnFx(string spriteKey, Vector2 position, Color startColor, Color endColor, float startScale, float endScale, float life, int sortingOrder, Sprite overrideSprite = null)
         {
             if (!enableFx)
             {
@@ -1059,7 +1303,11 @@ namespace Gunplay.View
 
             Fx fx = fxFree.Count > 0 ? fxFree.Pop() : new Fx();
             fx.Actor = fxPool.Rent();
-            fx.Actor.SetSprite(SpriteFactory.Get(spriteKey));
+            // 指定单图时优先用单图；否则外部帧序列优先。复用时帧索引必须归零，否则会接着上一轮特效的帧继续播
+            Sprite[] frames = overrideSprite != null ? null : GetFxFrames(spriteKey);
+            fx.Frames = frames != null && frames.Length > 0 ? frames : null;
+            fx.FrameIndex = 0;
+            fx.Actor.SetSprite(overrideSprite != null ? overrideSprite : (fx.Frames != null ? fx.Frames[0] : SpriteFactory.Get(spriteKey)));
             fx.Actor.SetPosition(position);
             fx.Actor.SetScale(Mathf.Max(0.01f, startScale));
             fx.Actor.SetColor(startColor);
@@ -1077,6 +1325,22 @@ namespace Gunplay.View
             fx.RotationSpeed = 0f;
             fxList.Add(fx);
             return fx;
+        }
+
+        /// <summary>取瞬时特效的外部帧序列（只探测清单约定的动画特效 key，其余沿用程序化单图）</summary>
+        private Sprite[] GetFxFrames(string spriteKey)
+        {
+            switch (spriteKey)
+            {
+                case "explosion":
+                    return explosionFrames;
+                case "hit_spark":
+                    return hitSparkFrames;
+                case "muzzle":
+                    return muzzleFrames;
+                default:
+                    return null;
+            }
         }
 
         /// <summary>尝试占用本帧的火花特效名额（性能护栏）</summary>
@@ -1114,6 +1378,25 @@ namespace Gunplay.View
             }
 
             killSoundCount++;
+            return true;
+        }
+
+        /// <summary>尝试占用本帧的死亡帧特效名额（性能护栏，避免同屏大量死亡时刷屏）</summary>
+        private bool TryReserveDeathFx()
+        {
+            int frame = Time.frameCount;
+            if (frame != deathFxFrame)
+            {
+                deathFxFrame = frame;
+                deathFxCount = 0;
+            }
+
+            if (deathFxCount >= MaxDeathFxPerFrame)
+            {
+                return false;
+            }
+
+            deathFxCount++;
             return true;
         }
 
@@ -1173,6 +1456,16 @@ namespace Gunplay.View
         {
             Color bodyColor = ViewPalette.EnemyBody(evt.Kind);
             bool boss = evt.Kind == EnemyKind.Boss;
+            // 外部死亡帧：在击杀点播一帧该兵种的 *_death 图，短暂停留后放大淡出（缺失时保持原爆散效果）
+            Sprite deathSprite = GetEnemyDeathSprite(evt.Kind);
+            if (deathSprite != null && TryReserveDeathFx())
+            {
+                float deathExtent = Mathf.Max(0.0001f, Mathf.Max(deathSprite.bounds.size.x, deathSprite.bounds.size.y));
+                float deathDiameter = GetEnemyKindRadius(evt.Kind) * 2f * enemySizeMultiplier;
+                float deathScale = deathDiameter / deathExtent;
+                SpawnFx(string.Empty, evt.Pos, Color.white, new Color(1f, 1f, 1f, 0f), deathScale, deathScale * 1.06f, 0.26f, ViewOrder.Fx, deathSprite);
+            }
+
             Color burstColor = bodyColor;
             burstColor.a = 0.9f;
             SpawnFx("ring", evt.Pos, burstColor, new Color(burstColor.r, burstColor.g, burstColor.b, 0f), boss ? 0.4f : 0.2f, boss ? 2.8f : 0.95f, boss ? 0.5f : 0.26f, ViewOrder.Fx);
@@ -1213,11 +1506,21 @@ namespace Gunplay.View
             if (TryReserveSpark())
             {
                 Color sparkColor = evt.Crit ? ViewPalette.CritText : Color.white;
-                Fx spark = SpawnFx("star", evt.Pos, sparkColor, new Color(sparkColor.r, sparkColor.g, sparkColor.b, 0f), evt.Crit ? 0.38f : 0.24f, 0.02f, 0.15f, ViewOrder.Fx);
-                if (spark != null)
+                if (hitSparkFrames != null && hitSparkFrames.Length > 0)
                 {
-                    spark.Velocity = Random.insideUnitCircle * 0.8f;
-                    spark.RotationSpeed = Random.Range(-240f, 240f);
+                    // 外部命中火花：帧序列在 0.2 秒内播完，暴击时整体更大
+                    float extent = Mathf.Max(0.0001f, Mathf.Max(hitSparkFrames[0].bounds.size.x, hitSparkFrames[0].bounds.size.y));
+                    float sparkScale = (evt.Crit ? 0.9f : 0.62f) / extent;
+                    SpawnFx("hit_spark", evt.Pos, Color.white, new Color(1f, 1f, 1f, 0f), sparkScale, sparkScale * 1.15f, 0.2f, ViewOrder.Fx);
+                }
+                else
+                {
+                    Fx spark = SpawnFx("star", evt.Pos, sparkColor, new Color(sparkColor.r, sparkColor.g, sparkColor.b, 0f), evt.Crit ? 0.38f : 0.24f, 0.02f, 0.15f, ViewOrder.Fx);
+                    if (spark != null)
+                    {
+                        spark.Velocity = Random.insideUnitCircle * 0.8f;
+                        spark.RotationSpeed = Random.Range(-240f, 240f);
+                    }
                 }
             }
 
@@ -1266,10 +1569,23 @@ namespace Gunplay.View
         private void HandleExplosion(ExplosionEvent evt)
         {
             float radius = evt.Radius > 0.01f ? evt.Radius : 1f;
-            Fx glow = SpawnFx("glow", evt.Pos, ViewPalette.ExplosionCore, ViewPalette.Explosion, radius * 0.6f / GlowVisibleDiameter, radius * 2.2f / GlowVisibleDiameter, 0.35f, ViewOrder.Fx);
-            if (glow != null)
+            if (explosionFrames != null && explosionFrames.Length > 0)
             {
-                glow.RotationSpeed = 0f;
+                // 有外部爆炸帧序列时按帧播放（帧数 / 寿命等比映射），原图配色不额外染色
+                float extent = Mathf.Max(0.0001f, Mathf.Max(explosionFrames[0].bounds.size.x, explosionFrames[0].bounds.size.y));
+                Fx boom = SpawnFx("explosion", evt.Pos, Color.white, new Color(1f, 1f, 1f, 0f), radius * 0.6f / extent, radius * 2.2f / extent, 0.35f, ViewOrder.Fx);
+                if (boom != null)
+                {
+                    boom.RotationSpeed = 0f;
+                }
+            }
+            else
+            {
+                Fx glow = SpawnFx("glow", evt.Pos, ViewPalette.ExplosionCore, ViewPalette.Explosion, radius * 0.6f / GlowVisibleDiameter, radius * 2.2f / GlowVisibleDiameter, 0.35f, ViewOrder.Fx);
+                if (glow != null)
+                {
+                    glow.RotationSpeed = 0f;
+                }
             }
 
             SpawnFx("ring", evt.Pos, ViewPalette.Explosion, new Color(ViewPalette.Explosion.r, ViewPalette.Explosion.g, ViewPalette.Explosion.b, 0f), radius * 0.6f / RingVisibleDiameter, radius * 2.2f / RingVisibleDiameter, 0.3f, ViewOrder.Fx);
@@ -1302,7 +1618,20 @@ namespace Gunplay.View
         {
             if (enableFx)
             {
-                SpawnFx("glow", BattleField.Muzzle, ViewPalette.MuzzleFlash, new Color(ViewPalette.MuzzleFlash.r, ViewPalette.MuzzleFlash.g, ViewPalette.MuzzleFlash.b, 0f), 0.32f, 0.85f, 0.09f, ViewOrder.Fx);
+                if (muzzleFrames != null && muzzleFrames.Length > 0)
+                {
+                    // 外部枪口火焰：按发射方向旋转（精灵默认朝上，因此减 90 度），按实际图尺寸缩放
+                    float extent = Mathf.Max(0.0001f, Mathf.Max(muzzleFrames[0].bounds.size.x, muzzleFrames[0].bounds.size.y));
+                    Fx muzzle = SpawnFx("muzzle", BattleField.Muzzle, Color.white, new Color(1f, 1f, 1f, 0f), 0.5f / extent, 1.05f / extent, 0.1f, ViewOrder.Fx);
+                    if (muzzle != null && evt.Direction.sqrMagnitude > 0.0001f)
+                    {
+                        muzzle.StartRotation = Mathf.Atan2(evt.Direction.y, evt.Direction.x) * Mathf.Rad2Deg - 90f;
+                    }
+                }
+                else
+                {
+                    SpawnFx("glow", BattleField.Muzzle, ViewPalette.MuzzleFlash, new Color(ViewPalette.MuzzleFlash.r, ViewPalette.MuzzleFlash.g, ViewPalette.MuzzleFlash.b, 0f), 0.32f, 0.85f, 0.09f, ViewOrder.Fx);
+                }
             }
 
             if (enableAudio)
@@ -1508,6 +1837,15 @@ namespace Gunplay.View
             /// <summary>Boss 光环（仅 Boss 使用，懒创建）</summary>
             public SpriteActor Aura;
 
+            /// <summary>外部帧动画的帧序列（为空表示没有外部帧）</summary>
+            public Sprite[] Frames;
+
+            /// <summary>当前帧序列对应的外部 key（Boss 换阶段时变化，用于触发重新装载）</summary>
+            public string FrameKey;
+
+            /// <summary>帧动画的随机相位偏移（秒），避免同屏敌人整齐踏步</summary>
+            public float FramePhase;
+
             /// <summary>最近一次同步的帧号（用于剔除已消失的敌人）</summary>
             public int LastFrame;
         }
@@ -1576,6 +1914,12 @@ namespace Gunplay.View
 
             /// <summary>自旋速度（度 / 秒）</summary>
             public float RotationSpeed;
+
+            /// <summary>外部帧序列（长度大于 1 时按帧播放；为 null 表示单图或程序化图形）</summary>
+            public Sprite[] Frames;
+
+            /// <summary>当前显示的帧索引（每次从对象池取出时重置为 0）</summary>
+            public int FrameIndex;
         }
     }
 }

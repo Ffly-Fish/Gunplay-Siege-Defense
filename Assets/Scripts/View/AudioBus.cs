@@ -333,8 +333,14 @@ namespace Gunplay.View
                 return;
             }
 
-            AudioClip clip;
-            if (!clips.TryGetValue(key, out clip) || clip == null)
+            // 外部音频优先：Resources/Art/Audio/<key>.wav 存在时直接播放，缺失才用合成音效
+            AudioClip clip = ArtLibrary.GetAudioClip(key);
+            if (clip == null)
+            {
+                clips.TryGetValue(key, out clip);
+            }
+
+            if (clip == null)
             {
                 return;
             }

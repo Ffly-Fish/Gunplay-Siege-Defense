@@ -55,6 +55,13 @@ namespace Gunplay.View
                 return BuildWhite();
             }
 
+            // 外部美术优先：Resources/Art/Sprites/<key>.png 存在时直接使用（缺失则继续走程序化绘制）
+            Sprite external = ArtLibrary.GetSprite(key);
+            if (external != null)
+            {
+                return external;
+            }
+
             // 命中缓存（编辑器关闭域重载时贴图可能被销毁，这里顺带做失效检查）
             if (cache.TryGetValue(key, out Sprite cached))
             {
