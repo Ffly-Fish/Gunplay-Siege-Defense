@@ -172,8 +172,7 @@ namespace Gunplay.Waves
             if (currentWave >= waveCount)
             {
                 levelFinished = true;
-                int levelReward = config.Tuning.economy.levelClearGoldBase +
-                                  config.Tuning.economy.levelClearGoldPerLevel * Mathf.Max(1, run.level);
+                int levelReward = CalculateLevelReward();
                 economy.AddLevelClearGold(run.level);
                 bus.Publish(new LevelClearedEvent
                 {
@@ -185,6 +184,34 @@ namespace Gunplay.Waves
             }
 
             gapTimer = Mathf.Max(0.2f, config.Tuning.waves.waveGap);
+        }
+
+        /// <summary>直接判定本关通过（测试按钮「一键通关」）：跳过剩余波次，按正常通关奖励立即结算</summary>
+        public void ForceClearLevel()
+        {
+            if (levelFinished)
+            {
+                return;
+            }
+
+            // 立刻冻结波次推进，避免结算期间继续刷怪
+            levelFinished = true;
+            waveActive = false;
+            int levelReward = CalculateLevelReward();
+            economy.AddLevelClearGold(run.level);
+            bus.Publish(new LevelClearedEvent
+            {
+                Level = run.level,
+                Reward = levelReward,
+                Stats = run.currentLevelStats
+            });
+        }
+
+        /// <summary>本关通关金币奖励（与正常清空最后一波时的公式一致）</summary>
+        private int CalculateLevelReward()
+        {
+            return config.Tuning.economy.levelClearGoldBase +
+                   config.Tuning.economy.levelClearGoldPerLevel * Mathf.Max(1, run.level);
         }
 
         // 本关是否为 Boss 关（每 bossEveryLevels 关）

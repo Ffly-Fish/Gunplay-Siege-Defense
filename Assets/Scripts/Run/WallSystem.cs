@@ -65,6 +65,18 @@ namespace Gunplay.Run
             PublishChanged(0f);
         }
 
+        /// <summary>城门耐久恢复至上限（每通过一关后调用，实现「过关回满血」）</summary>
+        public void RestoreFull()
+        {
+            if (run.gateMaxHp <= 0f)
+            {
+                return;
+            }
+
+            run.gateHp = run.gateMaxHp;
+            PublishChanged(0f);
+        }
+
         /// <summary>当前关卡下可用的装备槽数量（按 slotUnlockLevels 解锁）</summary>
         public int GetUnlockedSlots()
         {

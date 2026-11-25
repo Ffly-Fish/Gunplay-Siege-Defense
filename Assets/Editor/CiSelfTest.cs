@@ -30,6 +30,12 @@ namespace Gunplay.EditorTools
         /// <summary>等待关卡通过的最长模拟时长（秒）</summary>
         private const float LEVEL_CLEAR_TIMEOUT_SECONDS = 300f;
 
+        /// <summary>暂停冻结验证时长（秒）：暂停期间持续 Tick 该时长，断言世界完全不推进</summary>
+        private const float PAUSE_SIMULATE_SECONDS = 2f;
+
+        /// <summary>「过关回满」验证时对城门造成的伤害值（用于把耐久打到上限以下）</summary>
+        private const float GATE_DAMAGE_TEST_AMOUNT = 40f;
+
         /// <summary>自检入口：失败写失败项并退出 1，全部通过写 SELF_TEST_OK 并退出 0</summary>
         public static void Run()
         {
@@ -189,6 +195,66 @@ namespace Gunplay.EditorTools
 
                 context.Check(runtime.State == GameState.Battle, "ContinueFromShop 后进入战斗（Battle）");
                 context.Check(runtime.Run.level == 2, "继续后关卡 = 2");
+
+                // ================= task-8：暂停 / 一键通关 / 过关回满 三组新功能断言 =================
+
+                // ---- A. 过关回满：城门受损后，经「结算 → 商店 → 下一关」必须恢复到上限 ----
+                runtime.StartNewRun();
+                context.Check(runtime.State == GameState.Battle && runtime.Run.level == 1, "A 重新开局后进入第 1 关战斗");
+                runtime.Wall.ApplyGateDamage(GATE_DAMAGE_TEST_AMOUNT);
+                context.Check(runtime.Run.gateHp < runtime.Run.gateMaxHp, "A 城门受到伤害后耐久低于上限");
+                context.Check(runtime.SkipCurrentLevel(), "A 一键通关返回 true");
+                context.Check(runtime.State == GameState.Result, "A 一键通关后进入结算（Result）");
+                runtime.ContinueFromResult();
+                context.Check(runtime.State == GameState.Shop, "A 结算继续后进入商店（Shop）");
+                runtime.ContinueFromShop();
+                context.Check(runtime.State == GameState.Battle, "A 商店出征后进入下一关（Battle）");
+                context.Check(runtime.Run.level == 2, "A 商店出征后关卡 = 2");
+                context.Check(runtime.Run.gateMaxHp > 0f && Mathf.Approximately(runtime.Run.gateHp, runtime.Run.gateMaxHp), "A 过关后城门耐久回满");
+
+                // ---- B. 暂停冻结：暂停期间 Tick 不得推进计时、伤害、金币与敌人 ----
+                SimulateFor(runtime, aim, random, 1f);
+                float gateHpBeforePause = runtime.Run.gateHp;
+                int goldBeforePause = runtime.Run.gold;
+                int enemyCountBeforePause = runtime.Enemies.Count;
+                float durationBeforePause = runtime.Run.currentLevelStats.duration;
+                context.Check(runtime.PauseGame(), "B PauseGame() 返回 true");
+                context.Check(runtime.State == GameState.Paused && runtime.IsPaused, "B 暂停后状态为 Paused 且 IsPaused 为 true");
+                context.Check(!runtime.IsAiming, "B 暂停后 IsAiming 为 false");
+                int pauseFrames = Mathf.CeilToInt(PAUSE_SIMULATE_SECONDS / FIXED_DELTA_TIME);
+                for (int i = 0; i < pauseFrames; i++)
+                {
+                    // 暂停期间仍主动推进 Tick，用来验证逻辑被冻结（而不是靠不调用 Tick 蒙对）
+                    aim.IsAiming = true;
+                    aim.AimWorldPos = PickAimPoint(runtime, random);
+                    runtime.Tick(FIXED_DELTA_TIME);
+                }
+
+                context.Check(runtime.State == GameState.Paused, "B 暂停 2 秒后仍保持 Paused");
+                context.Check(Mathf.Approximately(runtime.Run.gateHp, gateHpBeforePause), "B 暂停期间城门耐久不变");
+                context.Check(runtime.Run.gold == goldBeforePause, "B 暂停期间金币不变");
+                context.Check(runtime.Enemies.Count == enemyCountBeforePause, "B 暂停期间敌人数不变");
+                context.Check(Mathf.Approximately(runtime.Run.currentLevelStats.duration, durationBeforePause), "B 暂停期间关卡计时不变");
+                context.Check(runtime.ResumeGame(), "B ResumeGame() 返回 true");
+                context.Check(runtime.State == GameState.Battle && !runtime.IsPaused, "B 恢复后回到战斗（Battle）");
+
+                // ---- C. 暂停边界：非暂停状态恢复、非战斗状态暂停都必须返回 false ----
+                context.Check(!runtime.ResumeGame(), "C 战斗中调用 ResumeGame() 返回 false");
+                runtime.ReturnToMenu();
+                context.Check(runtime.State == GameState.Menu, "C 返回主菜单后状态为 Menu");
+                context.Check(!runtime.PauseGame(), "C Menu 状态调用 PauseGame() 返回 false");
+
+                // ---- D. 一键通关：返回 true、进入结算并发放本关通关奖励 ----
+                runtime.StartNewRun();
+                SimulateFor(runtime, aim, random, 1f);
+                int goldBeforeSkip = runtime.Run.gold;
+                int expectedLevelReward = config.Tuning.economy.levelClearGoldBase +
+                                          config.Tuning.economy.levelClearGoldPerLevel * Mathf.Max(1, runtime.Run.level);
+                context.Check(runtime.SkipCurrentLevel(), "D SkipCurrentLevel() 返回 true");
+                context.Check(runtime.State == GameState.Result, "D 一键通关后进入结算（Result）");
+                context.Check(expectedLevelReward > 0, "D 本关通关奖励 > 0");
+                context.Check(runtime.Run.gold == goldBeforeSkip + expectedLevelReward, "D 结算后金币增加了本关通关奖励");
+                context.Check(!runtime.SkipCurrentLevel(), "D 结算状态再次 SkipCurrentLevel() 返回 false");
             }
             catch (Exception exception)
             {

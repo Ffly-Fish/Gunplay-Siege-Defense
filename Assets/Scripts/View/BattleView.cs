@@ -1212,7 +1212,8 @@ namespace Gunplay.View
                 return;
             }
 
-            Vector2 direction = runtime.AimWorldPos - BattleField.Muzzle;
+            // 以枪管旋转轴心求方向，枪塔贴图转动的枪口才与子弹起点重合
+            Vector2 direction = runtime.AimWorldPos - BattleField.GetBarrelPivot();
             if (direction.sqrMagnitude < 0.0001f)
             {
                 return;
@@ -1245,16 +1246,22 @@ namespace Gunplay.View
                 return;
             }
 
-            Vector2 muzzle = BattleField.Muzzle;
+            Vector2 pivot = BattleField.GetBarrelPivot();
             Vector2 target = runtime.AimWorldPos;
-            Vector2 delta = target - muzzle;
+            Vector2 delta = target - pivot;
             if (delta.sqrMagnitude < 0.0001f)
             {
                 return;
             }
 
             Vector2 direction = delta.normalized;
-            float length = Mathf.Min(delta.magnitude, aimLineMaxLength);
+            // 瞄准线从旋转后的枪口尖端出发，不会穿过枪身贴图
+            Vector2 muzzle = pivot + direction * BattleField.BarrelHalfLength;
+            float length = Mathf.Min(delta.magnitude - BattleField.BarrelHalfLength, aimLineMaxLength);
+            if (length <= 0f)
+            {
+                return;
+            }
             aimLineActor.SetActive(true);
             aimLineActor.SetSprite(SpriteFactory.White);
             aimLineActor.SetPosition(muzzle + direction * (length * 0.5f));
@@ -1688,7 +1695,7 @@ namespace Gunplay.View
                 {
                     // 外部枪口火焰：按发射方向旋转（精灵默认朝上，因此减 90 度），按实际图尺寸缩放
                     float extent = Mathf.Max(0.0001f, Mathf.Max(muzzleFrames[0].bounds.size.x, muzzleFrames[0].bounds.size.y));
-                    Fx muzzle = SpawnFx("muzzle", BattleField.Muzzle, Color.white, new Color(1f, 1f, 1f, 0f), 0.5f / extent, 1.05f / extent, 0.1f, ViewOrder.Fx);
+                    Fx muzzle = SpawnFx("muzzle", BattleField.GetMuzzleTip(evt.Direction), Color.white, new Color(1f, 1f, 1f, 0f), 0.5f / extent, 1.05f / extent, 0.1f, ViewOrder.Fx);
                     if (muzzle != null && evt.Direction.sqrMagnitude > 0.0001f)
                     {
                         muzzle.StartRotation = Mathf.Atan2(evt.Direction.y, evt.Direction.x) * Mathf.Rad2Deg - 90f;
@@ -1696,7 +1703,7 @@ namespace Gunplay.View
                 }
                 else
                 {
-                    SpawnFx("glow", BattleField.Muzzle, ViewPalette.MuzzleFlash, new Color(ViewPalette.MuzzleFlash.r, ViewPalette.MuzzleFlash.g, ViewPalette.MuzzleFlash.b, 0f), 0.32f, 0.85f, 0.09f, ViewOrder.Fx);
+                    SpawnFx("glow", BattleField.GetMuzzleTip(evt.Direction), ViewPalette.MuzzleFlash, new Color(ViewPalette.MuzzleFlash.r, ViewPalette.MuzzleFlash.g, ViewPalette.MuzzleFlash.b, 0f), 0.32f, 0.85f, 0.09f, ViewOrder.Fx);
                 }
             }
 

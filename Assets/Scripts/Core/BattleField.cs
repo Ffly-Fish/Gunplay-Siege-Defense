@@ -26,5 +26,24 @@ namespace Gunplay.Core
         public const float MaxArcThrowDistance = 11f;
         /// <summary>手雷最小投掷距离</summary>
         public const float MinArcThrowDistance = 2.5f;
+        /// <summary>枪管半长（世界单位）：等于枪塔贴图显示高度的一半，枪口尖端绕轴心旋转的半径</summary>
+        public const float BarrelHalfLength = 0.95f;
+        /// <summary>直射弹生成点沿飞行方向前移的距离（约半个弹丸视觉长度），避免弹体贴图压住枪口</summary>
+        public const float BulletSpawnOffsetStraight = 0.3f;
+        /// <summary>手雷生成点沿投掷方向前移的距离（约半个手雷直径），避免炸弹贴图压住枪口</summary>
+        public const float BulletSpawnOffsetArc = 0.35f;
+
+        /// <summary>枪管旋转轴心（世界坐标）：枪塔贴图中心，位于枪口 Muzzle 正下方半个枪管长处</summary>
+        public static Vector2 GetBarrelPivot()
+        {
+            return new Vector2(Muzzle.x, Muzzle.y - BarrelHalfLength);
+        }
+
+        /// <summary>按瞄准方向计算旋转后的枪口尖端世界坐标（子弹 / 激光 / 枪口火光的真实起点）</summary>
+        public static Vector2 GetMuzzleTip(Vector2 aimDirection)
+        {
+            Vector2 direction = aimDirection.sqrMagnitude < 0.0001f ? Vector2.up : aimDirection.normalized;
+            return GetBarrelPivot() + direction * BarrelHalfLength;
+        }
     }
 }

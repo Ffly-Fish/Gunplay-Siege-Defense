@@ -49,6 +49,10 @@ namespace Gunplay.UI
         private ShopPanel shopPanel;
         // 本轮结束面板
         private GameOverPanel gameOverPanel;
+
+        [Header("暂停界面")]
+        [Tooltip("暂停界面（战斗中点击「暂停」后显示，提供继续 / 重新开始 / 回主菜单）")]
+        private PausePanel pausePanel;
         // 是否已订阅游戏状态事件
         private bool bound;
         // 当前显示的面板状态
@@ -175,6 +179,13 @@ namespace Gunplay.UI
                     }
 
                     break;
+                case GameState.Paused:
+                    if (pausePanel != null)
+                    {
+                        pausePanel.Refresh();
+                    }
+
+                    break;
             }
         }
 
@@ -241,7 +252,7 @@ namespace Gunplay.UI
             eventSystemObject.transform.SetParent(transform, false);
         }
 
-        // 创建五个面板（全部常驻，用 CanvasGroup 控制显隐，保证事件订阅始终有效）
+        // 创建全部面板（常驻，用 CanvasGroup 控制显隐，保证事件订阅始终有效）
         private void BuildPanels()
         {
             menuPanel = CreatePanel<MenuPanel>("MenuPanel");
@@ -249,6 +260,8 @@ namespace Gunplay.UI
             resultPanel = CreatePanel<ResultPanel>("ResultPanel");
             shopPanel = CreatePanel<ShopPanel>("ShopPanel");
             gameOverPanel = CreatePanel<GameOverPanel>("GameOverPanel");
+            // 暂停界面最后创建，保证它在层级最上方（遮罩能压住 HUD）
+            pausePanel = CreatePanel<PausePanel>("PausePanel");
         }
 
         // 创建单个面板并立即构建其界面节点
@@ -300,10 +313,12 @@ namespace Gunplay.UI
         {
             currentState = state;
             SetPanelVisible(menuPanel, state == GameState.Menu);
-            SetPanelVisible(battleHud, state == GameState.Battle);
+            // 暂停时战斗 HUD 仍然可见（被暂停面板的半透明遮罩压住，保留战场信息）
+            SetPanelVisible(battleHud, state == GameState.Battle || state == GameState.Paused);
             SetPanelVisible(resultPanel, state == GameState.Result);
             SetPanelVisible(shopPanel, state == GameState.Shop);
             SetPanelVisible(gameOverPanel, state == GameState.GameOver);
+            SetPanelVisible(pausePanel, state == GameState.Paused);
             RefreshCurrent();
         }
 

@@ -56,8 +56,10 @@ namespace Gunplay.Combat
 
             Bullet bullet = pool.Get();
             bullet.WeaponId = weapon.id;
+            // 生成点沿实际飞行方向前移半个弹丸长度：弹体贴图不会压住枪口贴图（不穿帮）
+            Vector2 spawnOrigin = origin + MathUtil.DirectionFromRadians(radians) * BattleField.BulletSpawnOffsetStraight;
             bullet.Origin = origin;
-            bullet.Position = origin;
+            bullet.Position = spawnOrigin;
             bullet.Velocity = MathUtil.DirectionFromRadians(radians) * Mathf.Max(1f, weapon.projectileSpeed);
             bullet.Damage = damage;
             bullet.Crit = crit;
@@ -82,11 +84,13 @@ namespace Gunplay.Combat
             }
 
             float clamped = Mathf.Clamp(distance, BattleField.MinArcThrowDistance, BattleField.MaxArcThrowDistance);
+            // 生成点沿投掷方向前移半个手雷直径，避免炸弹贴图压住枪口
+            Vector2 spawnOrigin = origin + direction.normalized * BattleField.BulletSpawnOffsetArc;
             Bullet bullet = pool.Get();
             bullet.WeaponId = weapon.id;
             bullet.Origin = origin;
-            bullet.Position = origin;
-            bullet.ArcTargetPos = origin + direction.normalized * clamped;
+            bullet.Position = spawnOrigin;
+            bullet.ArcTargetPos = spawnOrigin + direction.normalized * clamped;
             bullet.Velocity = direction.normalized * Mathf.Max(2f, weapon.projectileSpeed);
             bullet.Damage = damage;
             bullet.Crit = false;

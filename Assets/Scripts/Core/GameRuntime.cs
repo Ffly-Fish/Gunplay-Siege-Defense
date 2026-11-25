@@ -82,6 +82,9 @@ namespace Gunplay.Core
         /// <summary>当前是否正在瞄准（仅战斗中有效）</summary>
         public bool IsAiming => state == GameState.Battle && aimInput != null && aimInput.IsAiming;
 
+        /// <summary>当前是否处于暂停状态（战斗被冻结，等待玩家继续或退出）</summary>
+        public bool IsPaused => state == GameState.Paused;
+
         /// <summary>瞄准点（世界坐标，未瞄准时为炮口上方）</summary>
         public Vector2 AimWorldPos => aimInput != null ? aimInput.AimWorldPos : (Vector2)BattleField.Muzzle + Vector2.up;
 
@@ -180,15 +183,17 @@ namespace Gunplay.Core
             }
 
             run.currentLevelStats.duration += dt;
-            Vector2 muzzle = BattleField.Muzzle;
             Vector2 aimPos = AimWorldPos;
-            Vector2 direction = aimPos - muzzle;
+            // 方向以枪管旋转轴心为基准计算，随瞄准转动
+            Vector2 direction = aimPos - BattleField.GetBarrelPivot();
             if (direction.sqrMagnitude < 0.0001f)
             {
                 direction = Vector2.up;
             }
 
             direction.Normalize();
+            // 枪口取旋转后的枪管尖端：子弹 / 激光 / 枪口火光都从这里出发，才不会压在枪塔贴图上
+            Vector2 muzzle = BattleField.GetMuzzleTip(direction);
             bool aiming = IsAiming;
             weaponSystem.Update(dt, aiming, muzzle, direction, aimPos);
             bulletSystem.Update(dt);
@@ -255,6 +260,8 @@ namespace Gunplay.Core
             }
 
             run.StartNextLevel();
+            // 每通过一关城门耐久回满（用户需求：过关即满血）
+            wallSystem.RestoreFull();
             wallSystem.SyncSlotsWithLevel();
             weaponSystem.RefillAll();
             enemiesClear();
@@ -423,6 +430,45 @@ namespace Gunplay.Core
             enemiesClear();
             bulletSystem.ClearAll();
             SetState(GameState.Menu);
+        }
+
+        /// <summary>暂停战斗（仅在战斗中有效；暂停后 Tick 冻结，所有计时与移动停止）</summary>
+        public bool PauseGame()
+        {
+            if (!initialized || state != GameState.Battle)
+            {
+                return false;
+            }
+
+            SetState(GameState.Paused);
+            trackSystem.Track("pause", $"{{\"level\":{run.level},\"wave\":{run.wave}}}");
+            return true;
+        }
+
+        /// <summary>从暂停恢复战斗（仅在暂停中有效）</summary>
+        public bool ResumeGame()
+        {
+            if (!initialized || state != GameState.Paused)
+            {
+                return false;
+            }
+
+            SetState(GameState.Battle);
+            trackSystem.Track("resume", $"{{\"level\":{run.level}}}");
+            return true;
+        }
+
+        /// <summary>一键通过本关（测试按钮）：跳过本关剩余波次，直接按通关奖励进入结算</summary>
+        public bool SkipCurrentLevel()
+        {
+            if (!initialized || state != GameState.Battle)
+            {
+                return false;
+            }
+
+            waveSystem.ForceClearLevel();
+            trackSystem.Track("level_skip", $"{{\"level\":{run.level},\"wave\":{run.wave}}}");
+            return true;
         }
 
         /// <summary>切换音效开关并保存</summary>

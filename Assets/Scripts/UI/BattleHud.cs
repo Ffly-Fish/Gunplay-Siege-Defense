@@ -121,6 +121,14 @@ namespace Gunplay.UI
                 weaponLabels[i] = chipLabel;
             }
 
+            // 左下角测试按钮：暂停（锚点左下，偏移 24,96，尺寸 168×64）
+            Button pauseButton = UiBuilder.NewPixelSecondaryButton("PauseButton", root, "暂停", UiTheme.TextPrimary, 30, OnPauseClicked);
+            UiBuilder.Anchor((RectTransform)pauseButton.transform, Vector2.zero, Vector2.zero, new Vector2(24f, 96f), new Vector2(168f, 64f));
+
+            // 左下角测试按钮：一键通关（锚点左下，偏移 24,20，尺寸 168×64）
+            Button skipButton = UiBuilder.NewPixelSecondaryButton("SkipButton", root, "一键通关", UiTheme.TextPrimary, 30, OnSkipLevelClicked);
+            UiBuilder.Anchor((RectTransform)skipButton.transform, Vector2.zero, Vector2.zero, new Vector2(24f, 20f), new Vector2(168f, 64f));
+
             MarkBuilt();
         }
 
@@ -209,6 +217,26 @@ namespace Gunplay.UI
             }
 
             UpdateBossHp(trackedBoss.Hp, trackedBoss.MaxHp);
+        }
+
+        // 点击「暂停」：切到暂停状态（GameRuntime.Tick 在非 Battle 状态冻结）
+        private void OnPauseClicked()
+        {
+            GameRuntime runtime = Runtime;
+            if (runtime != null)
+            {
+                runtime.PauseGame();
+            }
+        }
+
+        // 点击「一键通关」：直接判定本关通过并进入结算（测试 / 调试用）
+        private void OnSkipLevelClicked()
+        {
+            GameRuntime runtime = Runtime;
+            if (runtime != null)
+            {
+                runtime.SkipCurrentLevel();
+            }
         }
 
         // 金币变化

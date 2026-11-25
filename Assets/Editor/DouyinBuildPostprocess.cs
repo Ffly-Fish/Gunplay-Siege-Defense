@@ -21,6 +21,9 @@ namespace Gunplay.EditorTools
         /// <summary>抖音小游戏包目录名（Build/Douyin/<name>）</summary>
         public const string PACKAGE_NAME = "gunplay-siege-defense";
 
+        /// <summary>抖音小游戏 appid（用户于 2026-11-25 提供，构建时写入 project.config.json）</summary>
+        public const string MINI_GAME_APPID = "tt8d3dfb80134f55ff07";
+
         /// <summary>全屏样式标记 Id（用于幂等注入）</summary>
         private const string FULLSCREEN_STYLE_ID = "gunplay-douyin-fullscreen-v2";
 
@@ -97,12 +100,12 @@ namespace Gunplay.EditorTools
             return builder.ToString();
         }
 
-        // project.config.json 模板：appid 等待用户填写
+        // project.config.json 模板：写入真实小游戏 appid 与基础编译设置
         private static string BuildProjectConfigJson()
         {
             StringBuilder builder = new StringBuilder();
             builder.AppendLine("{");
-            builder.AppendLine("  \"appid\": \"// TODO: 填写抖音小游戏 appid\",");
+            builder.AppendLine("  \"appid\": \"" + MINI_GAME_APPID + "\",");
             builder.AppendLine("  \"projectname\": \"" + PACKAGE_NAME + "\",");
             builder.AppendLine("  \"compileType\": \"game\",");
             builder.AppendLine("  \"miniprogramRoot\": \"./\",");

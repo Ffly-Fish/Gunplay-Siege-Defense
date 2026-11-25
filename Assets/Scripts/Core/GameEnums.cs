@@ -8,6 +8,8 @@ namespace Gunplay.Core
         Menu,
         /// <summary>战斗中</summary>
         Battle,
+        /// <summary>战斗中（暂停：模拟层冻结，等待玩家继续 / 重开 / 退出）</summary>
+        Paused,
         /// <summary>单关通过结算页</summary>
         Result,
         /// <summary>关间商店</summary>

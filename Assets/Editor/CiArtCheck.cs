@@ -42,6 +42,12 @@ namespace Gunplay.EditorTools
             "hit", "kill", "shield_block", "shield_break", "explosion", "gate_hit", "level_clear", "game_over", "combo_up",
         };
 
+        /// <summary>运行时代码目录（字形校验的扫描范围）</summary>
+        private const string ScriptDirectoryName = "Scripts";
+
+        /// <summary>界面字体资源路径（与 UiTheme.FontResourcePath 保持一致）</summary>
+        private const string FontResourcePath = "Fonts/MainFont";
+
         /// <summary>入口：检查并写日志；返回缺失项数量（0 表示清单已齐）</summary>
         [MenuItem("Gunplay/5. 校验素材清单", false, 50)]
         public static void Run()
@@ -89,7 +95,10 @@ namespace Gunplay.EditorTools
                 }
             }
 
-            int missingTotal = missingRequired.Count + missingAudio.Count;
+            // 字体字形校验：子集字体缺字时 uGUI 会渲染成空白（曾出现「暂停」显示成「停」），必须拦住
+            List<string> missingGlyphs = CollectMissingGlyphs();
+
+            int missingTotal = missingRequired.Count + missingAudio.Count + missingGlyphs.Count;
             StringBuilder builder = new StringBuilder(2048);
             builder.AppendLine("=== 素材清单校验 ===");
             builder.AppendLine("必需精灵：" + foundRequired + "/" + RequiredSpriteKeys.Length + "，缺失 " + missingRequired.Count);
@@ -110,6 +119,12 @@ namespace Gunplay.EditorTools
                 builder.AppendLine("缺失音效：" + string.Join(", ", missingAudio));
             }
 
+            builder.AppendLine("字体缺字：" + missingGlyphs.Count + "（" + FontResourcePath + "）");
+            if (missingGlyphs.Count > 0)
+            {
+                builder.AppendLine("缺失字符（请重跑 Tools/subset_font.py）：" + string.Join(" ", missingGlyphs));
+            }
+
             builder.AppendLine(missingTotal == 0 ? "ART_CHECK_OK" : "ART_CHECK_MISSING " + missingTotal);
             string text = builder.ToString();
             Debug.Log("[CiArtCheck]" + text);
@@ -123,6 +138,59 @@ namespace Gunplay.EditorTools
             {
                 Debug.LogWarning("[CiArtCheck] 写日志失败：" + exception.Message);
             }
+        }
+
+        /// <summary>扫描 Assets/Scripts 下的 .cs，找出字体里缺少的、界面可能显示的非 ASCII 字符</summary>
+        private static List<string> CollectMissingGlyphs()
+        {
+            List<string> missing = new List<string>();
+            Font uiFont = Resources.Load<Font>(FontResourcePath);
+            if (uiFont == null)
+            {
+                missing.Add("<缺少字体资源 " + FontResourcePath + ">");
+                return missing;
+            }
+
+            string scriptDirectory = Path.Combine(Application.dataPath, ScriptDirectoryName);
+            if (!Directory.Exists(scriptDirectory))
+            {
+                return missing;
+            }
+
+            HashSet<char> usedCharacters = new HashSet<char>();
+            foreach (string file in Directory.GetFiles(scriptDirectory, "*.cs", SearchOption.AllDirectories))
+            {
+                string content;
+                try
+                {
+                    content = File.ReadAllText(file);
+                }
+                catch (IOException)
+                {
+                    continue;
+                }
+
+                foreach (char c in content)
+                {
+                    // 只关心非 ASCII 可打印字符：ASCII 与换行、制表符都在字体默认范围内
+                    if (c > 0x7E && c < 0xFFFF && !char.IsControl(c))
+                    {
+                        usedCharacters.Add(c);
+                    }
+                }
+            }
+
+            List<char> sorted = new List<char>(usedCharacters);
+            sorted.Sort();
+            foreach (char c in sorted)
+            {
+                if (!uiFont.HasCharacter(c))
+                {
+                    missing.Add(c.ToString());
+                }
+            }
+
+            return missing;
         }
 
         /// <summary>拼出精灵的资源路径（与 ArtLibrary.SpriteRoot 保持一致）</summary>
