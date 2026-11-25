@@ -75,6 +75,9 @@
   `ProjectSettings.asset` 改成 `scriptingDefineSymbols: WebGL: TTSDK_MIX_ENGINE`，并把 WebGL 图形 API
   固定成 `m_APIs: 08000000`（OpenGL ES 2.0 = WebGL 1.0）。编译出的包会启用 TTSDK 的「混合渲染引擎」，
   这套运行时假设自己跑在抖音容器里；普通浏览器里 `UNBridge is Not Available`，相机渲染的精灵整层不显示。
+- **在 Unity 编辑器里构建网页版的正确做法**：点菜单 `Gunplay/8. 切到浏览器可玩模式（关闭 TTSDK 混引擎）` → 等重编译 → 直接 Build；
+  要回抖音出包前点 `Gunplay/9. 切回抖音出包模式（开启 TTSDK 混引擎）`。实现见 `Assets/Editor/WebGraphicsMode.cs`
+  （菜单 8 = 移除宏 `TTSDK_MIX_ENGINE` + `PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.WebGL, true)`；菜单 9 = 反向：写回宏并固定 OpenGL ES 2.0）。
 - 结论：**同一个工程不能既出「抖音包」又出「浏览器包」，必须分两条出包路径**：
   1. 抖音小游戏包：TTSDK Build Tool（或克隆里反射调 `TTSDK.Tool.StarkBuilder.Build`）——保留 TTSDK。
   2. 网页版 / GitHub Pages：`bash E:/UnityProject/_ci/ci_web_build.sh` —— 在克隆里镜像代码时**排除 ByteGame**
