@@ -127,7 +127,7 @@ namespace Gunplay.Core
             trackSystem = new TrackSystem(verboseTracking);
             saveSystem = new SaveSystem(config.Tuning.ads);
             upgradeSystem = new UpgradeSystem(config, run);
-            wallSystem = new WallSystem(config.Tuning.gate, config.Tuning.combat, run, bus);
+            wallSystem = new WallSystem(config.Tuning.gate, run, bus);
             comboSystem = new ComboSystem(config.Tuning.economy, run, bus, upgradeSystem);
             economySystem = new EconomySystem(config.Tuning.economy, run, bus, comboSystem);
             enemySystem = new EnemySystem(config, run, bus, comboSystem, economySystem, wallSystem);
@@ -262,7 +262,7 @@ namespace Gunplay.Core
             run.StartNextLevel();
             // 每通过一关城门耐久回满（用户需求：过关即满血）
             wallSystem.RestoreFull();
-            wallSystem.SyncSlotsWithLevel();
+            wallSystem.EquipAllOwned();
             weaponSystem.RefillAll();
             enemiesClear();
             bulletSystem.ClearAll();

@@ -83,7 +83,7 @@ namespace Gunplay.Core
         public int bestCombo;
         /// <summary>已拥有的武器 Id</summary>
         public List<string> ownedWeapons = new List<string>();
-        /// <summary>已装备的武器 Id（顺序即槽位顺序）</summary>
+        /// <summary>已装备的武器 Id（顺序即开火顺序；已取消槽位上限，凡是拥有的武器都在这里）</summary>
         public List<string> equippedWeapons = new List<string>();
         /// <summary>各武器运行时状态</summary>
         public List<WeaponRuntime> weaponStates = new List<WeaponRuntime>();
@@ -154,15 +154,16 @@ namespace Gunplay.Core
             return created.level;
         }
 
-        /// <summary>解锁（并尝试装备）一把武器</summary>
-        public void UnlockWeapon(string weaponId, int magazine, int slots)
+        /// <summary>解锁一把武器：拥有即自动装备（不再受装备槽数量限制，所有武器同时开火）</summary>
+        public void UnlockWeapon(string weaponId, int magazine)
         {
             if (!ownedWeapons.Contains(weaponId))
             {
                 ownedWeapons.Add(weaponId);
             }
 
-            if (!IsEquipped(weaponId) && equippedWeapons.Count < slots)
+            // 拥有即装备：已取消装备槽上限，所有拥有的武器都同时开火
+            if (!IsEquipped(weaponId))
             {
                 equippedWeapons.Add(weaponId);
             }

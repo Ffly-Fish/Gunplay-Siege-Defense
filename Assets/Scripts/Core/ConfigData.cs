@@ -273,6 +273,7 @@ namespace Gunplay.Core
         /// <summary>敌人到达城门后的攻击间隔（秒）</summary>
         public float gateAttackInterval;
         /// <summary>装备槽解锁关卡（第 i 个元素 = 第几关解锁 i+1 个槽）</summary>
+        /// // TODO: 装备槽数量上限已取消（m03631：拥有即可同时开火），此字段仅为旧配置兼容与配置校验保留，运行期不再读取
         public int[] slotUnlockLevels;
     }
 

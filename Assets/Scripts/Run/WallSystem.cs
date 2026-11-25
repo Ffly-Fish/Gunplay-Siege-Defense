@@ -1,16 +1,15 @@
 using Gunplay.Core;
 using UnityEngine;
 
-// WallSystem.cs —— 城门耐久、城墙加固与装备槽解锁
+// WallSystem.cs —— 城门耐久、城墙加固与武器装备同步
 namespace Gunplay.Run
 {
-    /// <summary>城墙 / 城门系统：耐久扣减、加固、装备槽数量</summary>
+    /// <summary>城墙 / 城门系统：耐久扣减、加固，以及把所有已拥有武器同步为已装备</summary>
     public sealed class WallSystem
     {
         // 城门配置
         private readonly GateConfigData gateConfig;
-        // 战斗配置（装备槽解锁关卡）
-        private readonly CombatConfigData combatConfig;
+        // 说明：装备槽数量上限已取消（拥有即可同时开火），不再需要战斗配置里的槽位解锁表
         // 本轮状态
         private readonly RunState run;
         // 事件总线
@@ -20,10 +19,9 @@ namespace Gunplay.Run
         public bool IsBroken => run.gateHp <= 0f;
 
         /// <summary>构造：注入配置、状态与事件总线</summary>
-        public WallSystem(GateConfigData gate, CombatConfigData combat, RunState runState, EventBus eventBus)
+        public WallSystem(GateConfigData gate, RunState runState, EventBus eventBus)
         {
             gateConfig = gate;
-            combatConfig = combat;
             run = runState;
             bus = eventBus;
         }
@@ -77,31 +75,10 @@ namespace Gunplay.Run
             PublishChanged(0f);
         }
 
-        /// <summary>当前关卡下可用的装备槽数量（按 slotUnlockLevels 解锁）</summary>
-        public int GetUnlockedSlots()
+        /// <summary>把所有已拥有的武器全部装备上（已取消装备槽数量限制：拥有即同时开火）</summary>
+        public void EquipAllOwned()
         {
-            if (combatConfig.slotUnlockLevels == null || combatConfig.slotUnlockLevels.Length == 0)
-            {
-                return 1;
-            }
-
-            int slots = 1;
-            for (int i = 0; i < combatConfig.slotUnlockLevels.Length; i++)
-            {
-                if (run.level >= combatConfig.slotUnlockLevels[i])
-                {
-                    slots = i + 1;
-                }
-            }
-
-            return Mathf.Clamp(slots, 1, Mathf.Max(1, combatConfig.slotUnlockLevels.Length));
-        }
-
-        /// <summary>关卡提升后自动补装新解锁的槽位（装备按拥有顺序生效）</summary>
-        public void SyncSlotsWithLevel()
-        {
-            int slots = GetUnlockedSlots();
-            for (int i = 0; i < run.ownedWeapons.Count && run.equippedWeapons.Count < slots; i++)
+            for (int i = 0; i < run.ownedWeapons.Count; i++)
             {
                 string weaponId = run.ownedWeapons[i];
                 if (!run.equippedWeapons.Contains(weaponId))

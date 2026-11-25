@@ -33,10 +33,14 @@ namespace Gunplay.UI
         private Text comboText;
         // 连杀倍率文字
         private Text multiplierText;
-        // 底部武器槽底图（最多 4 把武器）
-        private readonly Image[] weaponChips = new Image[4];
+        // 武器槽最大数量（7 把武器 + 1 个余量；已取消装备槽上限，拥有即全部同时开火）
+        private const int MaxWeaponChips = 8;
+        // 每行武器槽数量（超出换行显示）
+        private const int WeaponChipsPerRow = 4;
+        // 底部武器槽底图（按已拥有武器动态显示）
+        private readonly List<Image> weaponChips = new List<Image>();
         // 底部武器槽文字
-        private readonly Text[] weaponLabels = new Text[4];
+        private readonly List<Text> weaponLabels = new List<Text>();
 
         // 当前追踪的 Boss（null = 场上没有 Boss）
         private Enemy trackedBoss;
@@ -108,17 +112,20 @@ namespace Gunplay.UI
             UiBuilder.Anchor(multiplierText.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -64f), new Vector2(900f, 48f));
             comboGroup.gameObject.SetActive(false);
 
-            // 底部武器槽（最多 4 把）
-            for (int i = 0; i < weaponChips.Length; i++)
+            // 底部武器槽（拥有几把就显示几个，每行 4 个，超过换行）
+            for (int i = 0; i < MaxWeaponChips; i++)
             {
-                float x = -300f + i * 200f;
+                int row = i / WeaponChipsPerRow;
+                int column = i % WeaponChipsPerRow;
+                float x = -300f + column * 200f;
+                float y = 200f + row * 68f;
                 Image chip = UiBuilder.NewPixelPanel("WeaponChip" + i, root, UiPixelArt.Slot, new Color(1f, 1f, 1f, 0.85f));
-                UiBuilder.Anchor(chip.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(x, 200f), new Vector2(184f, 56f));
+                UiBuilder.Anchor(chip.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(x, y), new Vector2(184f, 56f));
                 Text chipLabel = UiBuilder.NewText("Label", chip.transform, "", UiTheme.FontTiny, UiTheme.TextPrimary);
                 UiBuilder.Stretch(chipLabel.rectTransform, 8f, 4f, 8f, 4f);
                 chip.gameObject.SetActive(false);
-                weaponChips[i] = chip;
-                weaponLabels[i] = chipLabel;
+                weaponChips.Add(chip);
+                weaponLabels.Add(chipLabel);
             }
 
             // 左下角测试按钮：暂停（锚点左下，偏移 24,96，尺寸 168×64）
@@ -383,7 +390,7 @@ namespace Gunplay.UI
         // 刷新底部武器槽（按已装备武器显示名称）
         private void RefreshWeapons(GameRuntime runtime, RunState run)
         {
-            for (int i = 0; i < weaponChips.Length; i++)
+            for (int i = 0; i < weaponChips.Count; i++)
             {
                 bool active = i < run.equippedWeapons.Count;
                 if (weaponChips[i].gameObject.activeSelf != active)

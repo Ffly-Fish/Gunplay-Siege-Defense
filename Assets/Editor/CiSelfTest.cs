@@ -36,6 +36,12 @@ namespace Gunplay.EditorTools
         /// <summary>「过关回满」验证时对城门造成的伤害值（用于把耐久打到上限以下）</summary>
         private const float GATE_DAMAGE_TEST_AMOUNT = 40f;
 
+        /// <summary>「多武器同时开火」验证时的战斗模拟时长（秒）</summary>
+        private const float WEAPON_FIRE_TEST_SECONDS = 4f;
+
+        /// <summary>「多武器同时开火」验证时额外解锁的武器把数</summary>
+        private const int WEAPON_FIRE_TEST_EXTRA_COUNT = 2;
+
         /// <summary>自检入口：失败写失败项并退出 1，全部通过写 SELF_TEST_OK 并退出 0</summary>
         public static void Run()
         {
@@ -255,6 +261,52 @@ namespace Gunplay.EditorTools
                 context.Check(expectedLevelReward > 0, "D 本关通关奖励 > 0");
                 context.Check(runtime.Run.gold == goldBeforeSkip + expectedLevelReward, "D 结算后金币增加了本关通关奖励");
                 context.Check(!runtime.SkipCurrentLevel(), "D 结算状态再次 SkipCurrentLevel() 返回 false");
+
+                // ---- E. 装备槽上限取消：拥有即全部同时开火（m03631） ----
+                runtime.StartNewRun();
+                context.Check(runtime.Run.equippedWeapons.Count == 1, "E 开局只装备初始武器");
+
+                // 直接解锁前两把未拥有的武器（绕开商店随机，模拟玩家已购买多把枪）
+                int extraUnlocked = 0;
+                for (int i = 0; i < config.Weapons.Count && extraUnlocked < WEAPON_FIRE_TEST_EXTRA_COUNT; i++)
+                {
+                    WeaponConfigData weapon = config.Weapons[i];
+                    if (weapon == null || runtime.Run.OwnsWeapon(weapon.id))
+                    {
+                        continue;
+                    }
+
+                    runtime.Run.UnlockWeapon(weapon.id, Mathf.Max(1, weapon.magazine));
+                    extraUnlocked++;
+                }
+
+                runtime.Wall.EquipAllOwned();
+                int ownedCount = runtime.Run.ownedWeapons.Count;
+                context.Check(ownedCount >= 1 + WEAPON_FIRE_TEST_EXTRA_COUNT, "E 已拥有至少 3 把武器");
+                context.Check(runtime.Run.equippedWeapons.Count == ownedCount, "E 所有已拥有武器都处于装备状态（无槽位上限）");
+
+                // 战斗内验证：一次对准目标，多把武器都会各自开火
+                HashSet<string> firedWeaponIds = new HashSet<string>();
+                Action<WeaponFiredEvent> onWeaponFired = evt =>
+                {
+                    if (evt != null && !string.IsNullOrEmpty(evt.WeaponId))
+                    {
+                        firedWeaponIds.Add(evt.WeaponId);
+                    }
+                };
+                runtime.Events.Subscribe(onWeaponFired);
+                try
+                {
+                    SimulateFor(runtime, aim, random, WEAPON_FIRE_TEST_SECONDS);
+                }
+                finally
+                {
+                    runtime.Events.Unsubscribe(onWeaponFired);
+                }
+
+                context.Check(firedWeaponIds.Count >= 2, "E 同时开火的武器种类数 >= 2（实际 " + firedWeaponIds.Count + "）");
+                context.Check(firedWeaponIds.Count == runtime.Run.equippedWeapons.Count,
+                    "E 所有已装备武器都在开火（开火 " + firedWeaponIds.Count + " / 装备 " + runtime.Run.equippedWeapons.Count + "）");
             }
             catch (Exception exception)
             {

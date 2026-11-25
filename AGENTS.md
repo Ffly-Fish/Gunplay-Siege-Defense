@@ -25,6 +25,8 @@
 
 - 竖屏定点守城射击：单指按住瞄准、自动齐射、连杀倍率、关间随机商店、无限闯关、每 5 关一个三阶段 Boss。
 - 已实现：7 种武器、6 种敌人（含盾兵环绕护盾与 Explosive/Piercing 克制）、城墙/词条/商店/模拟广告/统计存档；战斗内可暂停（`GameState.Paused`）与一键通关（测试用），每关通过后城墙自动回满。
+- **武器不限制装备数量**：凡是拥有的武器都同时开火（`WallSystem.EquipAllOwned()`，`RunState.UnlockWeapon(weaponId, magazine)` 拥有即装备）。
+  `slotUnlockLevels` 仅为旧配置兼容保留，运行期不再读取；HUD 武器槽按拥有数量显示，每行 4 个自动换行。
 - 美术风格：**像素奇幻（Fantasy Dreamland）**，统一 **50 像素 = 1 世界单位**。
   - 外部素材放在 `Assets/Resources/Art/Sprites/<key>.png`、音效放在 `Assets/Resources/Art/Audio/<key>.wav`；导入规则由 `Assets/Editor/ArtImportPostprocess.cs` 统一接管（Point、无 mipmap、PPU 50）。
   - 缺失时不报错，自动回退程序化美术（`SpriteFactory` / `AudioBus`），所以加/换素材只放同名文件即可。
@@ -46,7 +48,7 @@
 真实工程被编辑器占用，验证在克隆 `E:/UnityProject/_ci/GunplayCI` 里做（`E:/UnityProject/_ci/ci_compile.sh <全限定入口>` 先镜像代码再跑批处理）：
 
 1. **离线编译门（最快）**：`gen_rsp.py` 生成响应文件后 `dotnet exec <Roslyn>/csc.dll @offline/compile.rsp`，要求 0 error / 0 warning。
-2. **逻辑自检**：`Gunplay.EditorTools.CiSelfTest.Run` → `E:/UnityProject/_ci/selftest.log`（SELF_TEST_OK，当前 passed=58）。
+2. **逻辑自检**：`Gunplay.EditorTools.CiSelfTest.Run` → `E:/UnityProject/_ci/selftest.log`（SELF_TEST_OK，当前 passed=63）。
 3. **场景校验**：`Gunplay.EditorTools.CiSceneCheck.Run` → `E:/UnityProject/_ci/scenecheck.log`（SCENE_CHECK_OK）。
 4. **素材校验**：`Gunplay.EditorTools.CiArtCheck.Run` → `E:/UnityProject/_ci/artcheck.log`（ART_CHECK_OK：必需精灵 16/16、音效 18/18、字体缺字 0）。
 5. **抖音包校验**：`Gunplay.EditorTools.DouyinToolkitCheck.Run` → `E:/UnityProject/_ci/douyincheck.log`（DOUYIN_CHECK_OK；`appid` 占位会记 WARN）。

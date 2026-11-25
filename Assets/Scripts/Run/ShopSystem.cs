@@ -151,8 +151,9 @@ namespace Gunplay.Run
             }
 
             WeaponConfigData weapon = config.GetWeapon(weaponId);
-            run.UnlockWeapon(weaponId, Mathf.Max(1, weapon.magazine), wall.GetUnlockedSlots());
-            wall.SyncSlotsWithLevel();
+            // 拥有即装备：不再受装备槽数量限制
+            run.UnlockWeapon(weaponId, Mathf.Max(1, weapon.magazine));
+            wall.EquipAllOwned();
             return true;
         }
 
