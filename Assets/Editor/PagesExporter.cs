@@ -17,14 +17,22 @@ namespace Gunplay.EditorTools
         /// <summary>GitHub Pages 站点目录（相对工程根，必须位于仓库内）</summary>
         private const string PAGES_DIR = "docs";
 
-        /// <summary>菜单入口：构建 WebGL 并导出到 docs/。</summary>
+        /// <summary>TTSDK 插件目录（存在时不能直接在本工程出网页版包，见导出说明）</summary>
+        private const string TTSDK_PLUGIN_DIR = "Assets/Plugins/ByteGame";
+
+        /// <summary>菜单入口：把现有 Build/WebGL 导出到 docs/。</summary>
         [MenuItem("Gunplay/6. 导出 GitHub Pages 站点", false, 60)]
         public static void BuildAndExport()
         {
-            bool built = EditorUtility.DisplayDialog("导出 GitHub Pages", "是否先重新构建 WebGL？\n\n是：先构建再导出（较慢）\n否：直接导出现有 Build/WebGL", "先构建", "直接导出");
-            if (built)
+            string projectRoot = Directory.GetParent(Application.dataPath).FullName;
+            bool hasTtsdk = Directory.Exists(Path.Combine(projectRoot, TTSDK_PLUGIN_DIR));
+            if (hasTtsdk)
             {
-                WebGLBuilder.BuildWebGL();
+                // 重要：本工程装了 TTSDK（抖音适配层），它会把 WebGL 切成混合渲染引擎 + WebGL 1.0，
+                // 打出来的包只能在抖音容器里跑，普通浏览器打开会世界层全黑（只剩界面）。
+                // 所以网页版包必须由 E:/UnityProject/_ci/ci_web_build.sh 在剥掉 TTSDK 的克隆里生成。
+                Debug.LogWarning("[Pages] 检测到 TTSDK 插件：本工程直接构建的 WebGL 包不适合浏览器运行，" +
+                    "网页版请用 _ci/ci_web_build.sh 出包后再导出。");
             }
 
             string error = Export();

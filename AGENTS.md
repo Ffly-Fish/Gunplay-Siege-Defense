@@ -68,6 +68,20 @@
 - 验收用的临时脚本（如伪造结算/商店的 `TempUiDemoShot`）**必须在正式出包前删除**，不要留在 `Assets/Scripts` 里。
 - 商店报价要按 id/档位去重，且城墙奖励分小修/加固/大修三档，否则一批三张会完全重复。
 
+## 六之九、浏览器里「看不到怪物但能打中」= TTSDK 混引擎污染（务必记住）
+
+- 症状：普通浏览器打开 WebGL 包，能进战斗、能开枪、能打死敌人，但世界层（背景/城墙/枪塔/敌人）**整屏黑**，只剩 uGUI 界面。
+- 根因：工程装了抖音 TTSDK（`Assets/Plugins/ByteGame/com.bytedance.starksdk`）。TTSDK 安装/出包时会把
+  `ProjectSettings.asset` 改成 `scriptingDefineSymbols: WebGL: TTSDK_MIX_ENGINE`，并把 WebGL 图形 API
+  固定成 `m_APIs: 08000000`（OpenGL ES 2.0 = WebGL 1.0）。编译出的包会启用 TTSDK 的「混合渲染引擎」，
+  这套运行时假设自己跑在抖音容器里；普通浏览器里 `UNBridge is Not Available`，相机渲染的精灵整层不显示。
+- 结论：**同一个工程不能既出「抖音包」又出「浏览器包」，必须分两条出包路径**：
+  1. 抖音小游戏包：TTSDK Build Tool（或克隆里反射调 `TTSDK.Tool.StarkBuilder.Build`）——保留 TTSDK。
+  2. 网页版 / GitHub Pages：`bash E:/UnityProject/_ci/ci_web_build.sh` —— 在克隆里镜像代码时**排除 ByteGame**
+     并还原 `TTSDK_MIX_ENGINE` 与图形 API，出干净的 WebGL 包，再导出到 `docs/`。
+- 排查关键词：浏览器控制台出现 `TTSDK Init`、`UNBridge is Not Available`、`AndroidUIManager` 就说明污染了。
+- 附带事实：带了 TTSDK 的包 wasm 8.19MB，干净包 7.48MB。
+
 ## 七、当前待办
 
 - [x] `tt` 轻量桥（激励视频 / 分享 / 启动参数）：`Assets/Plugins/WebGL/GunplayDouyin.jslib` + `Assets/Scripts/Platform/DouyinBridge.cs`。

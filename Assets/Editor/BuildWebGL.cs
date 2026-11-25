@@ -80,6 +80,8 @@ namespace Gunplay.EditorTools
             PlayerSettings.WebGL.memorySize = 256;
             // 只保留显式抛出的异常堆栈：既能定位线上崩溃，又不会像 Full 那样显著增加包体
             PlayerSettings.WebGL.exceptionSupport = WebGLExceptionSupport.ExplicitlyThrownExceptionsOnly;
+            // 关闭调试符号：符号文件有 1.7MB 左右，网页版直接公开托管时没有用处，只会拖慢加载
+            PlayerSettings.WebGL.debugSymbolMode = WebGLDebugSymbolMode.Off;
             EditorUserBuildSettings.development = false;
             EditorUserBuildSettings.allowDebugging = false;
             EditorUserBuildSettings.connectProfiler = false;
