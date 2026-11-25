@@ -1,0 +1,80 @@
+{
+  "upgrades": [
+    {
+      "id": "damage",
+      "kind": 0,
+      "displayName": "伤害强化",
+      "basePrice": 200,
+      "maxLevel": 5,
+      "perLevelValue": 0.18,
+      "applicableWeapons": []
+    },
+    {
+      "id": "firerate",
+      "kind": 1,
+      "displayName": "射速强化",
+      "basePrice": 200,
+      "maxLevel": 5,
+      "perLevelValue": 0.1,
+      "applicableWeapons": []
+    },
+    {
+      "id": "pellets",
+      "kind": 2,
+      "displayName": "弹丸增加",
+      "basePrice": 350,
+      "maxLevel": 3,
+      "perLevelValue": 1,
+      "applicableWeapons": [
+        "shotgun"
+      ]
+    },
+    {
+      "id": "pierce",
+      "kind": 3,
+      "displayName": "穿透强化",
+      "basePrice": 350,
+      "maxLevel": 3,
+      "perLevelValue": 1,
+      "applicableWeapons": [
+        "rifle",
+        "sniper",
+        "laser"
+      ]
+    },
+    {
+      "id": "magazine",
+      "kind": 4,
+      "displayName": "弹匣扩容",
+      "basePrice": 150,
+      "maxLevel": 5,
+      "perLevelValue": 0.2,
+      "applicableWeapons": [
+        "pistol",
+        "shotgun",
+        "smg",
+        "grenade",
+        "rifle",
+        "sniper"
+      ]
+    },
+    {
+      "id": "crit",
+      "kind": 5,
+      "displayName": "暴击强化",
+      "basePrice": 150,
+      "maxLevel": 5,
+      "perLevelValue": 0.05,
+      "applicableWeapons": []
+    },
+    {
+      "id": "comboWindow",
+      "kind": 6,
+      "displayName": "连杀时长",
+      "basePrice": 120,
+      "maxLevel": 5,
+      "perLevelValue": 0.3,
+      "applicableWeapons": []
+    }
+  ]
+}

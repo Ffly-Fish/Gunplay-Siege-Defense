@@ -1,0 +1,94 @@
+{
+  "waves": {
+    "wavesPerLevel": 5,
+    "baseCount": 8,
+    "perWaveCount": 2,
+    "levelCountDivisor": 2,
+    "spawnIntervalMin": 0.32,
+    "spawnIntervalMax": 0.78,
+    "waveGap": 2,
+    "bossEveryLevels": 5,
+    "bossWaveIndex": 3,
+    "spawnXRange": 3.6
+  },
+  "difficulty": {
+    "baseHpPerLevel": 0.12,
+    "extraHpPow": 1.05,
+    "speedPerLevel": 0.03,
+    "hpCap": 1000000000
+  },
+  "economy": {
+    "comboWindow": 3,
+    "waveClearGoldPerWave": 50,
+    "levelClearGoldBase": 100,
+    "levelClearGoldPerLevel": 20,
+    "critMultiplier": 2,
+    "focusFireMultiplier": 1.15,
+    "focusFireWindow": 0.2,
+    "comboWindowPerLevel": 0.3,
+    "comboTiers": [
+      {
+        "minCombo": 0,
+        "multiplier": 1,
+        "feedbackLevel": 0
+      },
+      {
+        "minCombo": 5,
+        "multiplier": 1.2,
+        "feedbackLevel": 1
+      },
+      {
+        "minCombo": 10,
+        "multiplier": 1.5,
+        "feedbackLevel": 2
+      },
+      {
+        "minCombo": 20,
+        "multiplier": 2,
+        "feedbackLevel": 3
+      },
+      {
+        "minCombo": 30,
+        "multiplier": 3,
+        "feedbackLevel": 4
+      }
+    ]
+  },
+  "shop": {
+    "offerCount": 3,
+    "weightWeapon": 30,
+    "weightWall": 25,
+    "weightUpgrade": 45,
+    "rerollBaseCost": 80,
+    "rerollCostStep": 40,
+    "maxRerolls": 3,
+    "wallPriceMin": 150,
+    "wallPriceMax": 400,
+    "wallReinforceAmount": 30,
+    "fallbackMaxPrice": 200
+  },
+  "gate": {
+    "initialMaxHp": 100,
+    "reinforceAmount": 30,
+    "maxHpCap": 100000
+  },
+  "combat": {
+    "maxBullets": 300,
+    "maxEnemies": 120,
+    "maxFloatingTexts": 40,
+    "maxFireSoundsPerFrame": 2,
+    "bulletLifetime": 2.5,
+    "gateAttackInterval": 1.2,
+    "slotUnlockLevels": [
+      1,
+      3,
+      6,
+      10
+    ]
+  },
+  "ads": {
+    "dailyDoubleGoldCount": 3,
+    "dailyFreeRerollCount": 1,
+    "doubleGoldMultiplier": 2
+  }
+}
