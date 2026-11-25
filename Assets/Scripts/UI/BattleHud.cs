@@ -73,7 +73,7 @@ namespace Gunplay.UI
             RectTransform root = PanelRect;
 
             // 城门耐久条（贴安全区顶部）
-            gateBar = new UiBar(root, "GateBar", UiTheme.Success, 940f, 40f);
+            gateBar = UiBuilder.NewPixelBar(root, "GateBar", UiTheme.Success, 940f, 40f);
             UiBuilder.Anchor(gateBar.Background.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -20f), new Vector2(940f, 40f));
             gateText = UiBuilder.NewText("GateText", gateBar.Background.transform, "城门 100 / 100", UiTheme.FontTiny, UiTheme.TextPrimary);
             UiBuilder.Stretch(gateText.rectTransform);
@@ -95,7 +95,7 @@ namespace Gunplay.UI
             UiBuilder.Anchor(bossNameText.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), Vector2.zero, new Vector2(600f, 32f));
             bossHpText = UiBuilder.NewText("BossHp", bossGroup, "0 / 0", UiTheme.FontTiny, UiTheme.TextSecondary, TextAnchor.MiddleRight);
             UiBuilder.Anchor(bossHpText.rectTransform, new Vector2(1f, 1f), new Vector2(1f, 1f), Vector2.zero, new Vector2(340f, 32f));
-            bossBar = new UiBar(bossGroup, "BossBar", UiTheme.Danger, 940f, 30f);
+            bossBar = UiBuilder.NewPixelBar(bossGroup, "BossBar", UiTheme.Danger, 940f, 30f);
             UiBuilder.Anchor(bossBar.Background.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), Vector2.zero, new Vector2(940f, 30f));
             bossGroup.gameObject.SetActive(false);
 
@@ -112,7 +112,7 @@ namespace Gunplay.UI
             for (int i = 0; i < weaponChips.Length; i++)
             {
                 float x = -300f + i * 200f;
-                Image chip = UiBuilder.NewPanel("WeaponChip" + i, root, new Color(UiTheme.Panel.r, UiTheme.Panel.g, UiTheme.Panel.b, 0.85f));
+                Image chip = UiBuilder.NewPixelPanel("WeaponChip" + i, root, UiPixelArt.Slot, new Color(1f, 1f, 1f, 0.85f));
                 UiBuilder.Anchor(chip.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(x, 200f), new Vector2(184f, 56f));
                 Text chipLabel = UiBuilder.NewText("Label", chip.transform, "", UiTheme.FontTiny, UiTheme.TextPrimary);
                 UiBuilder.Stretch(chipLabel.rectTransform, 8f, 4f, 8f, 4f);

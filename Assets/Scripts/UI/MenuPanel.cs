@@ -41,8 +41,8 @@ namespace Gunplay.UI
             Text subtitle = UiBuilder.NewText("Subtitle", root, "单指瞄准 · 无限闯关 · 关间随机商店", UiTheme.FontSmall, UiTheme.TextSecondary);
             UiBuilder.Anchor(subtitle.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 442f), new Vector2(1020f, 50f));
 
-            // 生涯统计卡片
-            Image statsCard = UiBuilder.NewPanel("StatsCard", root, UiTheme.Panel);
+            // 生涯统计卡片（像素九宫格面板）
+            Image statsCard = UiBuilder.NewPixelPanel("StatsCard", root);
             UiBuilder.Anchor(statsCard.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 120f), new Vector2(880f, 330f));
 
             Text statsTitle = UiBuilder.NewText("StatsTitle", statsCard.transform, "生涯战绩", UiTheme.FontBody, UiTheme.Gold);
@@ -52,8 +52,8 @@ namespace Gunplay.UI
             bestComboValue = CreateStatRow(statsCard.rectTransform, "最高连杀", -15f);
             totalKillsValue = CreateStatRow(statsCard.rectTransform, "累计击杀", -85f);
 
-            // 开始按钮
-            Button startButton = UiBuilder.NewButton("StartButton", root, "开始新一轮", UiTheme.Gold, UiTheme.Background, 46, OnStartClicked);
+            // 开始按钮（像素立体主按钮）
+            Button startButton = UiBuilder.NewPixelButton("StartButton", root, "开始新一轮", UiTheme.Background, 46, OnStartClicked);
             UiBuilder.Anchor((RectTransform)startButton.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -230f), new Vector2(680f, 130f));
 
             // 底部操作提示

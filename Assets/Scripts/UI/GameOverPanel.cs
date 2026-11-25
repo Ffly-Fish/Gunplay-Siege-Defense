@@ -27,8 +27,8 @@ namespace Gunplay.UI
             Image dim = UiBuilder.NewImage("Dim", root, UiTheme.Dim, null, true);
             UiBuilder.Stretch(dim.rectTransform);
 
-            // 战果卡片
-            Image card = UiBuilder.NewPanel("Card", root, UiTheme.Panel);
+            // 战果卡片（像素九宫格卡片）
+            Image card = UiBuilder.NewPixelCard("Card", root);
             UiBuilder.Anchor(card.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 30f), new Vector2(900f, 620f));
 
             // 主标题
@@ -50,11 +50,11 @@ namespace Gunplay.UI
             bestValue = CreateRow(card.rectTransform, "历史最高关卡", -170f);
 
             // 再来一次（主按钮）
-            Button restartButton = UiBuilder.NewButton("RestartButton", root, "再来一次", UiTheme.Gold, UiTheme.Background, 44, OnRestartClicked);
+            Button restartButton = UiBuilder.NewPixelButton("RestartButton", root, "再来一次", UiTheme.Background, 44, OnRestartClicked);
             UiBuilder.Anchor((RectTransform)restartButton.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -430f), new Vector2(700f, 130f));
 
             // 回主菜单（次按钮）
-            Button menuButton = UiBuilder.NewButton("MenuButton", root, "回主菜单", UiTheme.PanelLight, UiTheme.TextPrimary, 40, OnMenuClicked);
+            Button menuButton = UiBuilder.NewPixelSecondaryButton("MenuButton", root, "回主菜单", UiTheme.TextPrimary, 40, OnMenuClicked);
             UiBuilder.Anchor((RectTransform)menuButton.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -600f), new Vector2(700f, 120f));
 
             MarkBuilt();

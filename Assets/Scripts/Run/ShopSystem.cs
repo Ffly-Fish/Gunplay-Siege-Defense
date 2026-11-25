@@ -62,9 +62,11 @@ namespace Gunplay.Run
         {
             offers.Clear();
             int count = Mathf.Max(1, config.Tuning.shop.offerCount);
+            // 本次刷新的去重键集合：避免同一批里出现两个完全相同的武器/词条奖励
+            HashSet<string> usedKeys = new HashSet<string>();
             for (int i = 0; i < count; i++)
             {
-                ShopOffer offer = CreateOffer();
+                ShopOffer offer = CreateOffer(usedKeys);
                 if (offer != null)
                 {
                     offers.Add(offer);
@@ -171,8 +173,8 @@ namespace Gunplay.Run
             return true;
         }
 
-        // 生成单个奖励
-        private ShopOffer CreateOffer()
+        // 生成单个奖励（usedKeys 用于同批去重）
+        private ShopOffer CreateOffer(HashSet<string> usedKeys)
         {
             ShopConfigData shop = config.Tuning.shop;
             int total = shop.weightWeapon + shop.weightWall + shop.weightUpgrade;
@@ -184,7 +186,7 @@ namespace Gunplay.Run
             int roll = random.Range(0, total);
             if (roll < shop.weightWeapon)
             {
-                ShopOffer weaponOffer = TryCreateWeaponOffer();
+                ShopOffer weaponOffer = TryCreateWeaponOffer(usedKeys);
                 if (weaponOffer != null)
                 {
                     return weaponOffer;
@@ -192,21 +194,33 @@ namespace Gunplay.Run
             }
             else if (roll < shop.weightWeapon + shop.weightWall)
             {
-                return CreateWallOffer();
+                return CreateWallOffer(usedKeys);
             }
 
-            ShopOffer upgradeOffer = TryCreateUpgradeOffer();
-            return upgradeOffer ?? CreateWallOffer();
+            ShopOffer upgradeOffer = TryCreateUpgradeOffer(usedKeys);
+            return upgradeOffer ?? CreateWallOffer(usedKeys);
         }
 
-        // 武器奖励：只刷当前关卡已解锁且未拥有的武器
-        private ShopOffer TryCreateWeaponOffer()
+        // 武器奖励去重键
+        private static string WeaponKey(string weaponId)
+        {
+            return "w:" + weaponId;
+        }
+
+        // 词条奖励去重键（同一词条对不同武器是不同奖励）
+        private static string UpgradeKey(string upgradeId, string weaponId)
+        {
+            return "u:" + upgradeId + "|" + weaponId;
+        }
+
+        // 武器奖励：只刷当前关卡已解锁、未拥有且本批未出现过的武器
+        private ShopOffer TryCreateWeaponOffer(HashSet<string> usedKeys)
         {
             List<WeaponConfigData> candidates = new List<WeaponConfigData>();
             for (int i = 0; i < config.Weapons.Count; i++)
             {
                 WeaponConfigData weapon = config.Weapons[i];
-                if (weapon.unlockLevel <= run.level && !run.OwnsWeapon(weapon.id))
+                if (weapon.unlockLevel <= run.level && !run.OwnsWeapon(weapon.id) && !usedKeys.Contains(WeaponKey(weapon.id)))
                 {
                     candidates.Add(weapon);
                 }
@@ -218,6 +232,7 @@ namespace Gunplay.Run
             }
 
             WeaponConfigData chosen = candidates[random.Range(0, candidates.Count)];
+            usedKeys.Add(WeaponKey(chosen.id));
             return new ShopOffer
             {
                 Kind = ShopOfferKind.Weapon,
@@ -230,21 +245,17 @@ namespace Gunplay.Run
             };
         }
 
-        // 词条奖励：只刷已拥有武器可用的、未满级的词条
-        private ShopOffer TryCreateUpgradeOffer()
+        // 词条奖励：只刷已拥有武器可用的、未满级且本批未出现过的词条
+        private ShopOffer TryCreateUpgradeOffer(HashSet<string> usedKeys)
         {
             List<ShopOffer> candidates = new List<ShopOffer>();
             for (int i = 0; i < config.Upgrades.Count; i++)
             {
                 UpgradeConfigData upgrade = config.Upgrades[i];
-                if (!upgrades.CanLevelUp(upgrade, string.Empty))
-                {
-                    // 全局词条上面已判定；武器词条逐个武器检查
-                }
-
                 if (upgrade.applicableWeapons == null || upgrade.applicableWeapons.Length == 0)
                 {
-                    if (upgrades.CanLevelUp(upgrade, string.Empty))
+                    // 全局词条：装备栏任意武器都吃收益
+                    if (upgrades.CanLevelUp(upgrade, string.Empty) && !usedKeys.Contains(UpgradeKey(upgrade.id, string.Empty)))
                     {
                         candidates.Add(CreateUpgradeOffer(upgrade, string.Empty, "全局"));
                     }
@@ -255,7 +266,8 @@ namespace Gunplay.Run
                 for (int w = 0; w < upgrade.applicableWeapons.Length; w++)
                 {
                     string weaponId = upgrade.applicableWeapons[w];
-                    if (run.OwnsWeapon(weaponId) && upgrades.CanLevelUp(upgrade, weaponId))
+                    if (run.OwnsWeapon(weaponId) && upgrades.CanLevelUp(upgrade, weaponId)
+                        && !usedKeys.Contains(UpgradeKey(upgrade.id, weaponId)))
                     {
                         candidates.Add(CreateUpgradeOffer(upgrade, weaponId, config.GetWeapon(weaponId).displayName));
                     }
@@ -267,7 +279,9 @@ namespace Gunplay.Run
                 return null;
             }
 
-            return candidates[random.Range(0, candidates.Count)];
+            ShopOffer chosenOffer = candidates[random.Range(0, candidates.Count)];
+            usedKeys.Add(UpgradeKey(chosenOffer.UpgradeId, chosenOffer.UpgradeWeaponId));
+            return chosenOffer;
         }
 
         // 构造词条奖励项
@@ -313,22 +327,58 @@ namespace Gunplay.Run
             }
         }
 
-        // 城墙奖励
-        private ShopOffer CreateWallOffer()
+        // 城墙奖励档位：小修 / 加固 / 大修（越贵加固越多，避免三张卡片完全一样）
+        private static readonly float[] WALL_TIER_MULTIPLIERS = { 0.6f, 1f, 1.6f };
+
+        // 城墙奖励档位名称（与 WALL_TIER_MULTIPLIERS 一一对应）
+        private static readonly string[] WALL_TIER_NAMES = { "城墙小修", "城墙加固", "城墙大修" };
+
+        // 城墙奖励（usedKeys 用于同批去重，可为 null）
+        private ShopOffer CreateWallOffer(HashSet<string> usedKeys = null)
         {
             ShopConfigData shop = config.Tuning.shop;
-            int price = random.Range(shop.wallPriceMin, Mathf.Max(shop.wallPriceMin + 1, shop.wallPriceMax));
-            float amount = Mathf.Max(1f, shop.wallReinforceAmount);
+            int tier = PickWallTier(usedKeys);
+            float baseAmount = Mathf.Max(1f, shop.wallReinforceAmount);
+            float amount = Mathf.Max(1f, Mathf.Round(baseAmount * WALL_TIER_MULTIPLIERS[tier]));
+            int priceMin = Mathf.Max(1, Mathf.RoundToInt(shop.wallPriceMin * WALL_TIER_MULTIPLIERS[tier]));
+            int priceMax = Mathf.Max(priceMin + 1, Mathf.RoundToInt(shop.wallPriceMax * WALL_TIER_MULTIPLIERS[tier]));
+            int price = random.Range(priceMin, priceMax);
+            usedKeys?.Add("wall:" + tier);
             return new ShopOffer
             {
                 Kind = ShopOfferKind.Wall,
-                Title = $"城墙加固 +{amount:0}",
+                Title = $"{WALL_TIER_NAMES[tier]} +{amount:0}",
                 Detail = $"城门耐久上限 +{amount:0}，并回复等量耐久",
                 Price = Mathf.Max(1, price),
                 Tier = 0,
                 WallAmount = amount,
                 IsValid = true
             };
+        }
+
+        // 挑选一个本批还没出现过的城墙档位（都已出现时退回「加固」档）
+        private int PickWallTier(HashSet<string> usedKeys)
+        {
+            if (usedKeys == null)
+            {
+                return 1;
+            }
+
+            List<int> available = new List<int>(WALL_TIER_MULTIPLIERS.Length);
+            for (int i = 0; i < WALL_TIER_MULTIPLIERS.Length; i++)
+            {
+                if (!usedKeys.Contains("wall:" + i))
+                {
+                    available.Add(i);
+                }
+            }
+
+            if (available.Count == 0)
+            {
+                return 1;
+            }
+
+            return available[random.Range(0, available.Count)];
         }
 
         // 保证至少有一个买得起的奖励（手册要求：不允许出现全部买不起）

@@ -1,5 +1,6 @@
 using System;
 using Gunplay.Combat;
+using Gunplay.Platform;
 using Gunplay.Run;
 using Gunplay.View;
 using Gunplay.Waves;
@@ -299,7 +300,7 @@ namespace Gunplay.Core
             return true;
         }
 
-        /// <summary>看广告翻倍本关金币（每日次数限制）</summary>
+        /// <summary>看广告翻倍本关金币（每日次数限制；有抖音 SDK 时播放真实激励视频，看完才发奖励）</summary>
         public bool WatchAdDoubleGold()
         {
             if (state != GameState.Result)
@@ -307,18 +308,48 @@ namespace Gunplay.Core
                 return false;
             }
 
+            if (DouyinBridge.HasDouyinSdk)
+            {
+                if (saveSystem.Stats.goldDoubleLeft <= 0)
+                {
+                    return false;
+                }
+
+                DouyinBridge.ShowRewardedVideo(DouyinBridge.PlacementGoldDouble, OnDoubleGoldAdClosed);
+                return true;
+            }
+
             if (!saveSystem.TryConsumeGoldDouble())
             {
                 return false;
             }
 
-            int baseGold = run.currentLevelStats.goldEarned;
-            economySystem.AddAdReward(baseGold, config.Tuning.ads.doubleGoldMultiplier);
-            trackSystem.Track("ad_double_gold", $"{{\"level\":{run.level},\"base\":{baseGold}}}");
+            GrantDoubleGoldReward();
             return true;
         }
 
-        /// <summary>看广告免费重刷（每日次数限制）</summary>
+        /// <summary>金币翻倍激励视频回调：只有看完才扣次数并发奖励，中途关闭仅广播失败事件</summary>
+        private void OnDoubleGoldAdClosed(bool completed)
+        {
+            if (!completed || state != GameState.Result || !saveSystem.TryConsumeGoldDouble())
+            {
+                PublishAdFinished(DouyinBridge.PlacementGoldDouble, false);
+                return;
+            }
+
+            GrantDoubleGoldReward();
+        }
+
+        /// <summary>发放金币翻倍奖励并广播成功事件（模拟广告与真实广告共用）</summary>
+        private void GrantDoubleGoldReward()
+        {
+            int baseGold = run.currentLevelStats.goldEarned;
+            economySystem.AddAdReward(baseGold, config.Tuning.ads.doubleGoldMultiplier);
+            trackSystem.Track("ad_double_gold", $"{{\"level\":{run.level},\"base\":{baseGold}}}");
+            PublishAdFinished(DouyinBridge.PlacementGoldDouble, true);
+        }
+
+        /// <summary>看广告免费重刷（每日次数限制；有抖音 SDK 时播放真实激励视频，看完才重刷）</summary>
         public bool WatchAdFreeReroll()
         {
             if (state != GameState.Shop || !shopSystem.CanReroll())
@@ -326,14 +357,59 @@ namespace Gunplay.Core
                 return false;
             }
 
+            if (DouyinBridge.HasDouyinSdk)
+            {
+                if (saveSystem.Stats.freeRerollLeft <= 0)
+                {
+                    return false;
+                }
+
+                DouyinBridge.ShowRewardedVideo(DouyinBridge.PlacementFreeReroll, OnFreeRerollAdClosed);
+                return true;
+            }
+
             if (!saveSystem.TryConsumeFreeReroll())
             {
                 return false;
             }
 
+            ApplyFreeRerollReward();
+            return true;
+        }
+
+        /// <summary>免费重刷激励视频回调：只有看完才扣次数并重刷，中途关闭仅广播失败事件</summary>
+        private void OnFreeRerollAdClosed(bool completed)
+        {
+            if (!completed || state != GameState.Shop || !shopSystem.CanReroll() || !saveSystem.TryConsumeFreeReroll())
+            {
+                PublishAdFinished(DouyinBridge.PlacementFreeReroll, false);
+                return;
+            }
+
+            ApplyFreeRerollReward();
+        }
+
+        /// <summary>执行免费重刷并广播成功事件（模拟广告与真实广告共用）</summary>
+        private void ApplyFreeRerollReward()
+        {
             shopSystem.Reroll();
             trackSystem.Track("ad_free_reroll", $"{{\"level\":{run.level}}}");
-            return true;
+            PublishAdFinished(DouyinBridge.PlacementFreeReroll, true);
+        }
+
+        /// <summary>广播激励视频结束事件（UI 可据此提示「广告未看完」）</summary>
+        private void PublishAdFinished(string placementId, bool success)
+        {
+            if (bus == null)
+            {
+                return;
+            }
+
+            bus.Publish(new AdRewardFinishedEvent
+            {
+                PlacementId = placementId,
+                Success = success
+            });
         }
 
         /// <summary>返回主菜单（清理战斗现场）</summary>

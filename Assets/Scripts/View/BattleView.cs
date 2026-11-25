@@ -70,8 +70,8 @@ namespace Gunplay.View
         /// <summary>外部准星（crosshair）期望的显示直径（世界单位）</summary>
         private const float CrosshairExternalDiameter = 1.3f;
 
-        /// <summary>炮台在屏幕上的显示高度（世界单位，与程序化炮台 0.96×1.5 一致）</summary>
-        private const float CannonDisplayHeight = 1.44f;
+        /// <summary>枪塔（炮台）在屏幕上的显示高度（世界单位）：枪口对齐 BattleField.Muzzle，底座搭在城墙前</summary>
+        private const float CannonDisplayHeight = 1.9f;
 
         /// <summary>敌人血条的世界高度</summary>
         private const float HpBarHeight = 0.085f;
@@ -537,7 +537,7 @@ namespace Gunplay.View
             cannonActor.SetOrder(ViewOrder.Cannon);
             if (ArtLibrary.TryGetSprite("cannon", out Sprite externalCannon))
             {
-                // 外部炮台：按实际图尺寸缩放到固定显示高度，并把炮管顶端（图片顶边）对齐炮口；原图自带配色不染色
+                // 外部枪塔：按实际图尺寸缩放到固定显示高度，并把枪口（图片顶边）对齐 BattleField.Muzzle；原图自带配色不染色
                 Vector2 cannonSize = SpriteWorldSize(externalCannon);
                 float cannonScale = CannonDisplayHeight / cannonSize.y;
                 cannonActor.SetPosition(BattleField.Muzzle + new Vector2(0f, -0.5f * cannonSize.y * cannonScale));

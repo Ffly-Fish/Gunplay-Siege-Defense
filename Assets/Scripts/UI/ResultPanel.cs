@@ -46,8 +46,8 @@ namespace Gunplay.UI
             Image dim = UiBuilder.NewImage("Dim", root, UiTheme.Dim, null, true);
             UiBuilder.Stretch(dim.rectTransform);
 
-            // 结算卡片
-            Image card = UiBuilder.NewPanel("Card", root, UiTheme.Panel);
+            // 结算卡片（像素九宫格卡片）
+            Image card = UiBuilder.NewPixelCard("Card", root);
             UiBuilder.Anchor(card.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -40f), new Vector2(920f, 760f));
 
             // 主视觉标题
@@ -68,8 +68,8 @@ namespace Gunplay.UI
             comboValue = CreateRow(card.rectTransform, "最高连杀", -60f);
             accuracyValue = CreateRow(card.rectTransform, "命中率", -150f);
 
-            // 广告金币翻倍按钮
-            adButton = UiBuilder.NewButton("AdButton", root, "看广告 · 金币 ×2", UiTheme.PanelLight, UiTheme.Gold, 38, OnAdClicked);
+            // 广告金币翻倍按钮（像素次级按钮）
+            adButton = UiBuilder.NewPixelSecondaryButton("AdButton", root, "看广告 · 金币 ×2", UiTheme.Gold, 38, OnAdClicked);
             UiBuilder.Anchor((RectTransform)adButton.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -510f), new Vector2(700f, 110f));
             adLabel = adButton.GetComponentInChildren<Text>();
 
@@ -77,8 +77,8 @@ namespace Gunplay.UI
             adCountText = UiBuilder.NewText("AdCount", root, "今日剩余 3 次", UiTheme.FontTiny, UiTheme.TextSecondary);
             UiBuilder.Anchor(adCountText.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -592f), new Vector2(700f, 40f));
 
-            // 进入商店（主按钮）
-            Button continueButton = UiBuilder.NewButton("ContinueButton", root, "进入商店", UiTheme.Gold, UiTheme.Background, 44, OnContinueClicked);
+            // 进入商店（像素立体主按钮）
+            Button continueButton = UiBuilder.NewPixelButton("ContinueButton", root, "进入商店", UiTheme.Background, 44, OnContinueClicked);
             UiBuilder.Anchor((RectTransform)continueButton.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -700f), new Vector2(700f, 120f));
 
             MarkBuilt();

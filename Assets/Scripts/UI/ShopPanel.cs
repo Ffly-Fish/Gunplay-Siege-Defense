@@ -69,7 +69,7 @@ namespace Gunplay.UI
             ownedText = UiBuilder.NewText("OwnedText", root, "已拥有：无", UiTheme.FontTiny, UiTheme.TextSecondary, TextAnchor.MiddleLeft);
             UiBuilder.Anchor(ownedText.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(60f, -160f), new Vector2(960f, 60f));
 
-            // 三张奖励卡
+            // 三张奖励卡（像素九宫格卡片）
             for (int i = 0; i < cards.Length; i++)
             {
                 float y = 400f - i * 330f;
@@ -77,17 +77,17 @@ namespace Gunplay.UI
             }
 
             // 付费重刷（左下）
-            rerollButton = UiBuilder.NewButton("RerollButton", root, "重刷商店", UiTheme.PanelLight, UiTheme.TextPrimary, 30, OnRerollClicked);
+            rerollButton = UiBuilder.NewPixelSecondaryButton("RerollButton", root, "重刷商店", UiTheme.TextPrimary, 30, OnRerollClicked);
             UiBuilder.Anchor((RectTransform)rerollButton.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(-240f, -610f), new Vector2(440f, 110f));
             rerollLabel = rerollButton.GetComponentInChildren<Text>();
 
             // 免费重刷（右下）
-            freeRerollButton = UiBuilder.NewButton("FreeRerollButton", root, "免费重刷", UiTheme.PanelLight, UiTheme.Success, 30, OnFreeRerollClicked);
+            freeRerollButton = UiBuilder.NewPixelSecondaryButton("FreeRerollButton", root, "免费重刷", UiTheme.Success, 30, OnFreeRerollClicked);
             UiBuilder.Anchor((RectTransform)freeRerollButton.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(240f, -610f), new Vector2(440f, 110f));
             freeRerollLabel = freeRerollButton.GetComponentInChildren<Text>();
 
             // 继续下一关（主按钮）
-            Button continueButton = UiBuilder.NewButton("ContinueButton", root, "出征 · 下一关", UiTheme.Gold, UiTheme.Background, 42, OnContinueClicked);
+            Button continueButton = UiBuilder.NewPixelButton("ContinueButton", root, "出征 · 下一关", UiTheme.Background, 42, OnContinueClicked);
             UiBuilder.Anchor((RectTransform)continueButton.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -770f), new Vector2(700f, 120f));
 
             MarkBuilt();
@@ -144,7 +144,7 @@ namespace Gunplay.UI
         private ShopCard CreateCard(RectTransform root, int index, float y)
         {
             ShopCard card = new ShopCard();
-            card.Root = UiBuilder.NewPanel("OfferCard" + index, root, UiTheme.Panel);
+            card.Root = UiBuilder.NewPixelCard("OfferCard" + index, root);
             UiBuilder.Anchor(card.Root.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, y), new Vector2(960f, 290f));
 
             // 左侧类别色标（拉满卡片高度）
@@ -169,7 +169,7 @@ namespace Gunplay.UI
             UiBuilder.Anchor(card.TierTag.rectTransform, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-290f, -26f), new Vector2(240f, 36f));
 
             // 购买按钮（点击按列表下标购买）
-            card.BuyButton = UiBuilder.NewButton("BuyButton", card.Root.transform, string.Empty, UiTheme.PanelLight, UiTheme.Gold, 32, () => OnBuyClicked(index));
+            card.BuyButton = UiBuilder.NewPixelSecondaryButton("BuyButton", card.Root.transform, string.Empty, UiTheme.Gold, 32, () => OnBuyClicked(index));
             UiBuilder.Anchor((RectTransform)card.BuyButton.transform, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-28f, 0f), new Vector2(250f, 110f));
             card.PriceLabel = card.BuyButton.GetComponentInChildren<Text>();
             if (card.PriceLabel != null)

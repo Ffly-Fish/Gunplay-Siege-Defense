@@ -63,6 +63,59 @@ namespace Gunplay.UI
         /// <summary>稀有度 2：史诗（紫）</summary>
         public static readonly Color TierEpic = FromHex("#B575FF");
 
+        // ==================== 像素风配色（UiPixelArt 生成九宫格精灵时使用） ====================
+
+        /// <summary>像素描边色：九宫格最外层的深色描边（近黑，保证低分辨率下轮廓清晰）</summary>
+        public static readonly Color PixelOutline = FromHex("#0A0C12");
+
+        /// <summary>像素亮边色：面板 / 卡片左上受光面</summary>
+        public static readonly Color PixelLightEdge = FromHex("#55648C");
+
+        /// <summary>像素暗边色：面板 / 卡片右下阴影面</summary>
+        public static readonly Color PixelDarkEdge = FromHex("#151A26");
+
+        /// <summary>像素亮金：主按钮顶部受光边</summary>
+        public static readonly Color PixelGoldLight = FromHex("#FFF0A6");
+
+        /// <summary>像素暗金：主按钮外描边</summary>
+        public static readonly Color PixelGoldShadow = FromHex("#8A5E0E");
+
+        /// <summary>凹槽内阴影色：血条底槽 / 武器槽顶部压暗</summary>
+        public static readonly Color PixelSlotShadow = FromHex("#0D0F18");
+
+        /// <summary>凹槽口高光色：血条底槽 / 武器槽底部受光</summary>
+        public static readonly Color PixelSlotHighlight = FromHex("#2A3247");
+
+        /// <summary>条填充暗边色：血条填充顶部高光之外的两侧 / 底部压暗（与 Image.color 相乘）</summary>
+        public static readonly Color PixelBarShade = FromHex("#9C9C9C");
+
+        /// <summary>木色暗部（木质边框深色，预留给后续木框控件）</summary>
+        public static readonly Color WoodDark = FromHex("#4A2F1B");
+
+        /// <summary>木色主体（木质边框）</summary>
+        public static readonly Color Wood = FromHex("#6B4423");
+
+        /// <summary>木色亮部（木质边框受光面）</summary>
+        public static readonly Color WoodLight = FromHex("#8C5A2E");
+
+        /// <summary>石色暗部（石质按钮 / 卡片阴影面）</summary>
+        public static readonly Color StoneDark = FromHex("#232838");
+
+        /// <summary>石色主体（次级按钮底色）</summary>
+        public static readonly Color Stone = FromHex("#3A4257");
+
+        /// <summary>石色亮部（石质按钮受光面）</summary>
+        public static readonly Color StoneLight = FromHex("#55648C");
+
+        /// <summary>禁用按钮底色（灰石，次数用尽 / 不可点击）</summary>
+        public static readonly Color PixelDisabledFill = FromHex("#394052");
+
+        /// <summary>禁用按钮受光面</summary>
+        public static readonly Color PixelDisabledLight = FromHex("#4A5268");
+
+        /// <summary>禁用按钮阴影面</summary>
+        public static readonly Color PixelDisabledDark = FromHex("#252B38");
+
         // ==================== 画布与字号 ====================
 
         /// <summary>参考分辨率宽度（竖屏设计基准）</summary>
@@ -108,6 +161,18 @@ namespace Gunplay.UI
 
         /// <summary>按钮圆角半径（像素）</summary>
         public const int ButtonRadius = 20;
+
+        /// <summary>像素九宫格贴图边长（像素）：32×32 足够容纳描边 + 亮暗边 + 铆钉</summary>
+        public const int PixelPatchSize = 32;
+
+        /// <summary>像素九宫格边距（像素）：Image.type = Sliced 时四角固定、中间拉伸</summary>
+        public const int PixelSlice = 8;
+
+        /// <summary>像素描边粗细（像素）：最外层深色描边的厚度</summary>
+        public const int PixelOutlineWidth = 2;
+
+        /// <summary>像素亮 / 暗边厚度（像素）：模拟受光面与阴影面的倒角宽度（3px 在 1080 宽画布上有明显立体感）</summary>
+        public const int PixelBevelWidth = 3;
 
         // 中文字体资源路径（相对 Assets/Resources，不带扩展名；Lead 已放入 HarmonyOS Sans SC Medium）
         private const string FontResourcePath = "Fonts/MainFont";

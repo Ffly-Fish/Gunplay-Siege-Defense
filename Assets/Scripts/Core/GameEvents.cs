@@ -177,4 +177,13 @@ namespace Gunplay.Core
         /// <summary>发射方向</summary>
         public Vector2 Direction;
     }
+
+    /// <summary>激励视频广告结束（只有看完才发奖励；UI 可据此提示「广告未看完」）</summary>
+    public sealed class AdRewardFinishedEvent
+    {
+        /// <summary>广告位 Id（与 DouyinBridge 的 Placement 常量对应）</summary>
+        public string PlacementId;
+        /// <summary>是否看完（false = 中途关闭 / 加载失败 / 未就绪）</summary>
+        public bool Success;
+    }
 }
