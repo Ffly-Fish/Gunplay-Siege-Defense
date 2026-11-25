@@ -12,16 +12,52 @@
 
 ## 二、项目技术事实
 
-- Unity 版本：2022.3.62f3c1（中国版），项目由 2D (URP) 模板创建。
-- 渲染：Universal Render Pipeline 14.0.12 + Renderer2D；已装 TextMeshPro、Timeline、uGUI、Visual Scripting、Test Framework。
-- 当前场景：`Assets/Scenes/SampleScene.unity`（空模板场景），尚无任何游戏代码。
-- 本机存在已打开的 Unity 实例时会占用该项目，此时不要用 `-batchmode` 打开同一个工程。
+- Unity 版本：2022.3.62f3c1（中国版），2D (URP) 模板；URP 14.0.12 + Renderer2D，已装 TextMeshPro、Timeline、uGUI、Test Framework、WebGL 支持。
+- 目标平台：抖音小游戏（Unity WebGL，竖屏 9:16）；玩法与数值按 `docs/manual_extract.md`（开发手册 v1.2 抽取稿）。
+- 主场景：`Assets/Scenes/Main.unity`（由菜单 `Gunplay/1. 重建主场景` 生成，勿手改）；场景必须挂 5 个根物体：MainCamera、UiRoot、GameBootstrap、AimInput、BattleView。
+- 代码结构：`Assets/Scripts/{Core,Combat,Waves,Run,View,UI,Bootstrap}`；编辑器工具在 `Assets/Editor`（namespace `Gunplay.EditorTools`，批处理 `-executeMethod` 必须写全限定名）。
+- 数值配置：`Assets/Resources/Config/{weapons,enemies,upgrades,tuning}.json`，改数值不必改代码。
+- 字体：`Assets/Resources/Fonts/MainFont.ttf`（HarmonyOS Sans SC 子集化，全量备份 `Tools/MainFont_full.ttf`，重新子集用 `Tools/subset_font.py`）。
+- **本机正在打开该工程的 Unity 编辑器会独占工程**：此时不要对真实工程跑 `-batchmode`，一律在克隆沙箱里验证。
 
-## 三、待定事项
+## 三、玩法与美术（已确定）
 
-- [ ] 玩法方向（俯视角 / 横版 / 3D 视角）、首版范围、美术方案 —— 等待用户讨论后确定。
+- 竖屏定点守城射击：单指按住瞄准、自动齐射、连杀倍率、关间随机商店、无限闯关、每 5 关一个三阶段 Boss。
+- 已实现：7 种武器、6 种敌人（含盾兵环绕护盾与 Explosive/Piercing 克制）、城墙/词条/商店/模拟广告/统计存档。
+- 美术风格：**像素奇幻（Fantasy Dreamland）**，统一 **50 像素 = 1 世界单位**。
+  - 外部素材放在 `Assets/Resources/Art/Sprites/<key>.png`、音效放在 `Assets/Resources/Art/Audio/<key>.wav`；导入规则由 `Assets/Editor/ArtImportPostprocess.cs` 统一接管（Point、无 mipmap、PPU 50）。
+  - 缺失时不报错，自动回退程序化美术（`SpriteFactory` / `AudioBus`），所以加/换素材只放同名文件即可。
+  - 护盾、血条、瞄准线、连斩提示等仍为程序化图形（护盾必须用弧片表达「正面才挡子弹」）。
+  - 素材清单与取舍理由见 `docs/素材清单.md`（新版在 `docs/素材清单_更新版.md`）。
 
-## 四、目录约定（待玩法确定后细化）
+## 四、目录约定
 
-- `Assets/Scripts/`：运行时代码；`Assets/Editor/`：编辑器工具脚本；`Assets/Scenes/`：场景。
-- 不使用中文文件名，避免 Unity 导入与 Git 的编码问题。
+- `Assets/Scripts/`：运行时代码；`Assets/Editor/`：编辑器工具；`Assets/Scenes/`：场景；`Assets/Resources/`：配置、字体、美术、音效。
+- `Assets/外部素材/`：用户下载的原始素材包（101MB，已在 `.gitignore` 中排除，不进版本库、不在 Resources 下、不进包体）。
+- `Tools/`：工程级脚本（字体子集化等），不在 `Assets` 下、不进包体。
+- `docs/`：手册抽取稿、交付说明、素材清单、验收截图。
+- 不使用中文文件名（`Assets/外部素材` 例外，属用户目录），避免 Unity 导入与 Git 的编码问题。
+
+## 五、构建与验证流水线（重要）
+
+真实工程被编辑器占用，验证在克隆 `E:/UnityProject/_ci/GunplayCI` 里做（`E:/UnityProject/_ci/ci_compile.sh <全限定入口>` 先镜像代码再跑批处理）：
+
+1. **离线编译门（最快）**：`gen_rsp.py` 生成响应文件后 `dotnet exec <Roslyn>/csc.dll @offline/compile.rsp`，要求 0 error / 0 warning。
+2. **逻辑自检**：`Gunplay.EditorTools.CiSelfTest.Run` → `E:/UnityProject/_ci/selftest.log`（SELF_TEST_OK）。
+3. **场景校验**：`Gunplay.EditorTools.CiSceneCheck.Run` → `E:/UnityProject/_ci/scenecheck.log`（SCENE_CHECK_OK）。
+4. **素材校验**：`Gunplay.EditorTools.CiArtCheck.Run` → `E:/UnityProject/_ci/artcheck.log`（ART_CHECK_OK）。
+5. **出包**：`Gunplay.EditorTools.WebGLBuilder.BuildWebGL` → `Build/WebGL` + `Build/Douyin/gunplay-siege-defense`（后处理自动写 `game.json`/`project.config.json` 并注入全屏样式）。
+6. **浏览器验收**：本地静态服务器（`Build/WebGL` 下 `python -m http.server 8765`）+ Edge（可见窗口 + `--remote-debugging-port`）；`document.hidden` 必须为 false，否则 Unity 主循环暂停、输入无效；改包后要强制刷新（否则 `.data` 走 304 缓存）。
+7. **回传**：`Build/`、`Assets/Scenes/Main.unity`、新增脚本的 `.cs.meta` 一起同步到真实工程（缺 `.meta` 会让场景引用变 Missing Script）。
+
+## 六、编码注意事项（踩过的坑）
+
+- `Gunplay.View.SpriteActor` 构造时默认 `SetActive(false)`（为对象池设计）：**静态元素创建后必须显式 `SetActive(true)`**，否则永远不渲染（首版背景/城墙/炮台因此漏渲染）。
+- WebGL 下 `Screen.orientation` 会抛 `NotSupportedError`（无害警告）；`document.hidden` 时主循环暂停。
+- 新增 `.cs` 文件后必须把 `.meta` 一并回传真实工程，场景/资源引用才稳。
+
+## 七、当前待办
+
+- [ ] 抖音平台适配层（`tt` 的 canvas / 输入 / 音频桥接）待接，目前是标准 WebGL 包 + 抖音小游戏工程外壳。
+- [ ] `project.config.json` 里的 `appid` 需填真实小游戏 appid。
+- [ ] 正式广告 SDK 接入；`Assets/外部素材/` 中未使用的 Kenney / Ninja 包可按需清理。
