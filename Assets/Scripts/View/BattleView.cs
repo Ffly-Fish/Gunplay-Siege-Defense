@@ -58,8 +58,17 @@ namespace Gunplay.View
         /// <summary>每帧最多生成的敌人死亡帧特效数量（性能护栏）</summary>
         private const int MaxDeathFxPerFrame = 6;
 
-        /// <summary>城墙在屏幕上的显示高度（世界单位，顶边落在城门受击线）</summary>
-        private const float WallDisplayHeight = 1.7f;
+        /// <summary>城墙在屏幕上的显示高度（世界单位，顶边落在城门受击线；与 wall.png 96px/PPU50 = 1.92 一致，1:1 不缩放）</summary>
+        private const float WallDisplayHeight = 1.92f;
+
+        /// <summary>外部箭矢弹丸（bullet）期望的显示长度（世界单位）</summary>
+        private const float BulletExternalLength = 0.6f;
+
+        /// <summary>外部手雷（grenade）期望的显示直径（世界单位）</summary>
+        private const float GrenadeExternalDiameter = 0.7f;
+
+        /// <summary>外部准星（crosshair）期望的显示直径（世界单位）</summary>
+        private const float CrosshairExternalDiameter = 1.3f;
 
         /// <summary>炮台在屏幕上的显示高度（世界单位，与程序化炮台 0.96×1.5 一致）</summary>
         private const float CannonDisplayHeight = 1.44f;
@@ -204,6 +213,18 @@ namespace Gunplay.View
 
         /// <summary>外部激光束精灵 bullet_laser（null 表示没有外部图，回退程序化柔光）</summary>
         private Sprite laserBeamSprite;
+
+        /// <summary>外部城墙精灵 wall（null 表示没有外部图，城墙走程序化石灰色）</summary>
+        private Sprite wallExternalSprite;
+
+        /// <summary>外部箭矢弹丸精灵 bullet（null 表示没有外部图，贯穿弹走程序化细长弹丸）</summary>
+        private Sprite bulletExternalSprite;
+
+        /// <summary>外部手雷精灵 grenade（null 表示没有外部图，手雷走程序化图形）</summary>
+        private Sprite grenadeExternalSprite;
+
+        /// <summary>外部准星精灵 crosshair（null 表示没有外部图，准星走程序化图形）</summary>
+        private Sprite crosshairExternalSprite;
 
         /// <summary>兵种碰撞半径缓存（从 Config.Enemies 读一次，用于把死亡帧等比缩放到身体大小）</summary>
         private readonly Dictionary<EnemyKind, float> enemyKindRadii = new Dictionary<EnemyKind, float>();
@@ -448,6 +469,10 @@ namespace Gunplay.View
             hitSparkFrames = ArtLibrary.GetFrames("hit_spark");
             muzzleFrames = ArtLibrary.GetFrames("muzzle");
             laserBeamSprite = ArtLibrary.GetSprite("bullet_laser");
+            wallExternalSprite = ArtLibrary.GetSprite("wall");
+            bulletExternalSprite = ArtLibrary.GetSprite("bullet");
+            grenadeExternalSprite = ArtLibrary.GetSprite("grenade");
+            crosshairExternalSprite = ArtLibrary.GetSprite("crosshair");
         }
 
         /// <summary>取精灵在缩放 1 时的世界尺寸（宽高，单位）；外部美术按实际像素 / PPU 自动换算</summary>
@@ -474,6 +499,8 @@ namespace Gunplay.View
             Vector2 bgSize = SpriteWorldSize(bgSprite);
             backgroundActor.SetScale(BackgroundWidth / bgSize.x, BackgroundHeight / bgSize.y);
             backgroundActor.SetColor(Color.white);
+            // SpriteActor 默认隐藏（供对象池复用），静态元素必须显式激活才会渲染
+            backgroundActor.SetActive(true);
         }
 
         /// <summary>生成城墙（顶边正好落在城门受击线 GateLineY 上）</summary>
@@ -487,7 +514,10 @@ namespace Gunplay.View
             // 横向铺满、纵向固定显示高度（程序化 wall 为 2.56×0.64，外部 wall 按实际图尺寸自动适配）
             Vector2 wallSize = SpriteWorldSize(wallSprite);
             wallActor.SetScale(BackgroundWidth / wallSize.x, WallDisplayHeight / wallSize.y);
-            wallActor.SetColor(new Color(0.62f, 0.66f, 0.76f, 1f));
+            // 外部 wall 是棕色木堡，不能被程序化的灰蓝 tint 污染；程序化城墙保持原色
+            wallActor.SetColor(wallExternalSprite != null ? Color.white : new Color(0.62f, 0.66f, 0.76f, 1f));
+            // SpriteActor 默认隐藏，城墙必须显式激活
+            wallActor.SetActive(true);
 
             wallFlashActor = new SpriteActor(root, "GateWallFlash");
             wallFlashActor.SetSprite(SpriteFactory.Get("glow"));
@@ -507,19 +537,23 @@ namespace Gunplay.View
             cannonActor.SetOrder(ViewOrder.Cannon);
             if (ArtLibrary.TryGetSprite("cannon", out Sprite externalCannon))
             {
-                // 外部炮台：按实际图尺寸缩放到固定显示高度，并把炮管顶端（图片顶边）对齐炮口
+                // 外部炮台：按实际图尺寸缩放到固定显示高度，并把炮管顶端（图片顶边）对齐炮口；原图自带配色不染色
                 Vector2 cannonSize = SpriteWorldSize(externalCannon);
                 float cannonScale = CannonDisplayHeight / cannonSize.y;
                 cannonActor.SetPosition(BattleField.Muzzle + new Vector2(0f, -0.5f * cannonSize.y * cannonScale));
                 cannonActor.SetScale(cannonScale);
+                cannonActor.SetColor(Color.white);
             }
             else
             {
                 // cannon 精灵 128×96 px：炮管顶端在中心上方 40 px，按 1.5 倍缩放即 0.6 unit
                 cannonActor.SetPosition(BattleField.Muzzle + new Vector2(0f, -0.6f));
                 cannonActor.SetScale(1.5f);
+                cannonActor.SetColor(new Color(0.85f, 0.87f, 0.95f, 1f));
             }
-            cannonActor.SetColor(new Color(0.85f, 0.87f, 0.95f, 1f));
+
+            // SpriteActor 默认隐藏，炮台必须显式激活
+            cannonActor.SetActive(true);
         }
 
         /// <summary>生成瞄准辅助线与准星（平时隐藏）</summary>
@@ -533,6 +567,12 @@ namespace Gunplay.View
             crosshairActor = new SpriteActor(root, "AimCrosshair");
             crosshairActor.SetSprite(SpriteFactory.Get("crosshair"));
             crosshairActor.SetOrder(ViewOrder.Crosshair);
+            if (crosshairExternalSprite != null)
+            {
+                // 外部准星：按最长边定成 1.3 世界单位；之后 UpdateAimGuide 不再覆盖缩放
+                crosshairActor.SetScale(CrosshairExternalDiameter / SpriteWorldSize(crosshairExternalSprite).y);
+            }
+
             crosshairActor.SetActive(false);
         }
 
@@ -983,9 +1023,19 @@ namespace Gunplay.View
             {
                 // 手雷：模拟层的 Position 是地面投影点，视觉上叠加抛射高度
                 Vector2 airborne = position + new Vector2(0f, bullet.VisualArcHeight);
-                view.Main.SetSprite(SpriteFactory.Get("grenade"));
+                if (grenadeExternalSprite != null)
+                {
+                    // 外部手雷图：按最长边缩放到 0.7 世界单位，保留翻滚旋转，原图配色不染
+                    view.Main.SetSprite(grenadeExternalSprite);
+                    view.Main.SetScale(GrenadeExternalDiameter / SpriteWorldSize(grenadeExternalSprite).y);
+                }
+                else
+                {
+                    view.Main.SetSprite(SpriteFactory.Get("grenade"));
+                    view.Main.SetScale(0.5f);
+                }
+
                 view.Main.SetPosition(airborne);
-                view.Main.SetScale(0.5f);
                 view.Main.SetRotation(Time.time * 540f);
                 view.Main.SetColor(Color.white);
 
@@ -1009,11 +1059,22 @@ namespace Gunplay.View
             if (bullet.Type == DamageType.Piercing)
             {
                 // 贯穿弹：细长尖头弹丸，朝速度方向
-                view.Main.SetSprite(SpriteFactory.Get("bullet"));
+                if (bulletExternalSprite != null)
+                {
+                    // 外部箭矢图（12×40，朝上）：按长度 0.6 世界单位缩放，白灰原图不染色
+                    view.Main.SetSprite(bulletExternalSprite);
+                    view.Main.SetScale(BulletExternalLength / SpriteWorldSize(bulletExternalSprite).y);
+                    view.Main.SetColor(Color.white);
+                }
+                else
+                {
+                    view.Main.SetSprite(SpriteFactory.Get("bullet"));
+                    view.Main.SetScale(0.85f);
+                    view.Main.SetColor(color);
+                }
+
                 view.Main.SetPosition(position);
-                view.Main.SetScale(0.85f);
                 view.Main.SetRotation(Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg - 90f);
-                view.Main.SetColor(color);
             }
             else
             {
@@ -1204,12 +1265,16 @@ namespace Gunplay.View
             aimLineActor.SetColor(lineColor);
 
             crosshairActor.SetActive(true);
-            crosshairActor.SetSprite(SpriteFactory.Get("crosshair"));
             crosshairActor.SetPosition(target);
             crosshairActor.SetRotation(Time.time * 45f);
-            float pulse = 0.95f + Mathf.Sin(Time.time * 8f) * 0.06f;
-            crosshairActor.SetScale(crosshairScale * pulse);
             crosshairActor.SetColor(new Color(1f, 1f, 1f, 0.85f));
+            if (crosshairExternalSprite == null)
+            {
+                // 程序化准星：沿用可调缩放 + 呼吸脉动；外部准星尺寸已在 BuildAimGuide 定好，不再覆盖
+                crosshairActor.SetSprite(SpriteFactory.Get("crosshair"));
+                float pulse = 0.95f + Mathf.Sin(Time.time * 8f) * 0.06f;
+                crosshairActor.SetScale(crosshairScale * pulse);
+            }
         }
 
         /// <summary>按城门耐久给城墙染色，并推进受击高光的淡出</summary>
@@ -1226,8 +1291,9 @@ namespace Gunplay.View
                 hpRatio = Mathf.Clamp01(runtime.Run.gateHp / runtime.Run.gateMaxHp);
             }
 
-            Color stone = new Color(0.62f, 0.66f, 0.76f, 1f);
-            Color danger = new Color(0.95f, 0.38f, 0.30f, 1f);
+            // 外部 wall 是棕色木堡：满血 white 乘法不改外观，掉血渐变到暖红警示色；程序化城墙仍走灰蓝 → 红
+            Color stone = wallExternalSprite != null ? Color.white : new Color(0.62f, 0.66f, 0.76f, 1f);
+            Color danger = wallExternalSprite != null ? new Color(1f, 0.80f, 0.72f, 1f) : new Color(0.95f, 0.38f, 0.30f, 1f);
             float lowHp = 1f - hpRatio;
             wallActor.SetColor(Color.Lerp(stone, danger, lowHp * lowHp));
 

@@ -22,13 +22,13 @@ namespace Gunplay.EditorTools
         {
             "bg", "wall", "cannon",
             "enemy_grunt", "enemy_runner", "enemy_shield", "enemy_flyer", "enemy_heavy", "enemy_boss",
-            "bullet", "grenade", "explosion", "hit_spark", "muzzle", "shield", "crosshair", "coin",
+            "bullet", "grenade", "explosion", "hit_spark", "muzzle", "crosshair", "coin",
         };
 
         /// <summary>P1 建议精灵 key（界面与反馈质感）</summary>
         private static readonly string[] OptionalSpriteKeys =
         {
-            "bullet_laser", "shield_break",
+            "bullet_laser", "shield_break", "shield",
             "icon_damage", "icon_firerate", "icon_pellets", "icon_pierce", "icon_magazine", "icon_crit", "icon_combo",
             "weapon_pistol", "weapon_rifle", "weapon_shotgun", "weapon_smg", "weapon_sniper", "weapon_laser", "weapon_grenade",
             "ui_panel", "ui_card", "ui_button", "ui_button_down",
