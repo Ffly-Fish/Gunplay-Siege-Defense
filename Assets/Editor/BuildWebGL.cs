@@ -66,6 +66,13 @@ namespace Gunplay.EditorTools
         // 写入 WebGL 平台参数：gzip 压缩、数据缓存、256MB 内存、无异常支持、关闭 Development
         private static void ApplyWebGLSettings()
         {
+            // 抖音 TTSDK 出包会把 WebGL 图形 API 固定成 WebGL 1.0（OpenGL ES 2.0），而 WebGL 1.0 不支持 Linear 色彩空间，
+            // 否则 Unity 构建直接报 "Incompatible color space with graphics API"；这里强制 Gamma，保证 CI 构建与抖音出包口径一致
+            if (PlayerSettings.colorSpace != ColorSpace.Gamma)
+            {
+                PlayerSettings.colorSpace = ColorSpace.Gamma;
+            }
+
             PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Gzip;
             // 抖音小游戏托管静态资源时不保证返回 Content-Encoding 头，必须内置解压兜底，否则资源 404/解析失败
             PlayerSettings.WebGL.decompressionFallback = true;

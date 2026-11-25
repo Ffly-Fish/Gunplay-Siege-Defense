@@ -59,6 +59,8 @@
 - `Gunplay.View.SpriteActor` 构造时默认 `SetActive(false)`（为对象池设计）：**静态元素创建后必须显式 `SetActive(true)`**，否则永远不渲染（首版背景/城墙/炮台因此漏渲染）。
 - WebGL 下 `Screen.orientation` 会抛 `NotSupportedError`（无害警告）；`document.hidden` 时主循环暂停。
 - 新增 `.cs` 文件后必须把 `.meta` 一并回传真实工程，场景/资源引用才稳。
+- **色彩空间必须是 Gamma**：抖音 TTSDK 出包把 WebGL 图形 API 固定为 WebGL 1.0（`OpenGLES2`），WebGL 1.0 不支持 Linear，构建会报 `Incompatible color space with graphics API`。`Assets/Editor/BuildWebGL.cs` 已强制 `PlayerSettings.colorSpace = ColorSpace.Gamma`；检查点 `ProjectSettings/ProjectSettings.asset`: `m_ActiveColorSpace: 0` 且 `m_BuildTargetGraphicsAPIs` 里 WebGLSupport 的 `m_APIs: 08000000`（TTSDK 安装时写入）。
+- TTSDK 安装会改写 ProjectSettings（`scriptingDefineSymbols` 的 `WebGL: TTSDK_MIX_ENGINE`、WebGL 内存 512MB、调试符号开、数据缓存关、Brotli 压缩）——这些是它出包需要的样子，**不要用我们的 `WebGLBuilder` 覆盖后再用 TTSDK 出包**，两条路径择一。
 - **新增中文文案 → 重跑 `Tools/subset_font.py`**（子集字体缺字是静默失败：字形直接不显示，例如「暂停」显示成「停」）。
 - 暂停实现靠 `GameRuntime.Tick` 在 `state != Battle` 时直接返回，所以新增系统必须挂在这个 Tick 之下才会被一并冻结。
 - `ci_compile.sh` 必须镜像 `Scripts/Resources/Editor/Plugins`：漏掉 `Assets/Plugins` 时 WebGL 链接会报 `undefined symbol: GunplayDouyin_*`。
