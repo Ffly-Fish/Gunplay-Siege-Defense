@@ -42,3 +42,5 @@ secrets.json
 # 用户下载的原始素材包（体积大，不纳入版本库）
 /Assets/外部素材/
 /Assets/外部素材.meta
+/tt-minigame/
+/log/
